@@ -1,0 +1,30 @@
+<Window x:Class="AirDesk.Host.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AirDesk Host — Locked Prototype" Height="500" Width="770"
+        MinHeight="440" MinWidth="640" Background="#0A172A"
+        Foreground="#F0F4FC" WindowStartupLocation="CenterScreen">
+    <Grid Margin="26">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <StackPanel>
+            <TextBlock Text="AirDesk Host" FontSize="29" FontWeight="SemiBold" Foreground="#C3B6FF"/>
+            <TextBlock Margin="0,6,0,0" Text="Windows companion · gesture and remote-work prototype" Foreground="#B5C5DA"/>
+        </StackPanel>
+        <Border Grid.Row="1" Margin="0,25" Padding="24" Background="#152941" BorderBrush="#385076" BorderThickness="1" CornerRadius="18">
+            <StackPanel>
+                <TextBlock Text="Remote input is locked" FontSize="23" FontWeight="SemiBold" Foreground="#FFC982"/>
+                <TextBlock Margin="0,12,0,16" TextWrapping="Wrap" Text="This initial Windows program is a safe WPF shell. No camera capture, PC input injection or remote display is enabled." Foreground="#DBE5F3"/>
+                <TextBlock x:Name="StatusText" Text="Status: NOT PAIRED · SAFETY UNKNOWN · NO HOST GRANT" Foreground="#A9BEE0"/>
+                <Separator Margin="0,18"/>
+                <TextBlock Text="Requirements before future input activation:" FontWeight="Medium" />
+                <TextBlock Margin="0,9,0,0" Text="• Verified parked vehicle state&#10;• Authenticated connection and current session&#10;• Explicit local PC user approval&#10;• Heartbeat watchdog / release on disconnect" Foreground="#C6D5E8"/>
+                <Button Width="210" Margin="0,24,0,0" HorizontalAlignment="Left" Padding="12,10" Content="Recheck prerequisites" Click="OnRecheck"/>
+            </StackPanel>
+        </Border>
+        <TextBlock Grid.Row="2" Text="AirDesk v0.1 — prototype only. No real remote PC control." Foreground="#8DA5C5"/>
+    </Grid>
+</Window>
