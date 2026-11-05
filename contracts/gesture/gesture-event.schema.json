@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://airdesk.local/contracts/gesture/gesture-event.schema.json",
+  "title": "AirDesk diagnostic gesture event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocolVersion",
+    "type",
+    "sessionId",
+    "sequence",
+    "timestampMs",
+    "payload"
+  ],
+  "properties": {
+    "protocolVersion": {
+      "const": "0.1"
+    },
+    "type": {
+      "enum": [
+        "gesture.move",
+        "gesture.pinch_start",
+        "gesture.pinch_end",
+        "gesture.drag_start",
+        "gesture.drag_move",
+        "tracking.lost"
+      ]
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9._-]+$"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "timestampMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "tracking.lost"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "reason"
+            ],
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "x",
+              "y",
+              "confidence"
+            ],
+            "properties": {
+              "x": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "y": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

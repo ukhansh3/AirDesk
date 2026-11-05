@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://airdesk.local/contracts/input/input-event.schema.json",
+  "title": "Reserved authenticated input message — disabled on diagnostic transport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocolVersion",
+    "type",
+    "sessionId",
+    "sequence",
+    "timestampMs",
+    "payload"
+  ],
+  "properties": {
+    "protocolVersion": {
+      "const": "0.1"
+    },
+    "type": {
+      "enum": [
+        "pointer.move",
+        "pointer.down",
+        "pointer.up",
+        "pointer.scroll",
+        "keyboard.down",
+        "keyboard.up",
+        "keyboard.text",
+        "input.release_all"
+      ]
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9._-]+$"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "timestampMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "payload": {
+      "type": "object"
+    }
+  }
+}

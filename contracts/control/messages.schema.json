@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://airdesk.local/contracts/control/messages.schema.json",
+  "title": "AirDesk diagnostic control message",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocolVersion",
+    "type",
+    "sessionId",
+    "sequence",
+    "timestampMs",
+    "payload"
+  ],
+  "properties": {
+    "protocolVersion": {
+      "const": "0.1"
+    },
+    "type": {
+      "enum": [
+        "auth.hello",
+        "auth.accepted",
+        "auth.rejected",
+        "session.locked",
+        "session.closed",
+        "heartbeat"
+      ]
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9._-]+$"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "timestampMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "auth.hello"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "token"
+            ],
+            "properties": {
+              "token": {
+                "type": "string",
+                "minLength": 24,
+                "maxLength": 512
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

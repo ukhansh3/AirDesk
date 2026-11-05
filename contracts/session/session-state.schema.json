@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://airdesk.local/contracts/session/session-state.schema.json",
+  "title": "AirDesk session projection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "state",
+    "safety",
+    "hostApproved",
+    "updatedAtMs"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "state": {
+      "enum": [
+        "DISCONNECTED",
+        "PAIRING",
+        "WAITING_APPROVAL",
+        "CONNECTED",
+        "LOCKED",
+        "ERROR"
+      ]
+    },
+    "safety": {
+      "enum": [
+        "UNKNOWN",
+        "PARKED_CONFIRMED",
+        "DRIVING",
+        "UX_RESTRICTED",
+        "UNSUPPORTED"
+      ]
+    },
+    "hostApproved": {
+      "type": "boolean"
+    },
+    "updatedAtMs": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
