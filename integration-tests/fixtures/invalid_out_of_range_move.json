@@ -1,0 +1,12 @@
+{
+  "protocolVersion": "0.1",
+  "type": "gesture.move",
+  "sessionId": "test-fixture",
+  "sequence": 2,
+  "timestampMs": 123457,
+  "payload": {
+    "x": 3.5,
+    "y": 0.75,
+    "confidence": 0.9
+  }
+}
