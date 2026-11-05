@@ -46,12 +46,15 @@ async def serve(source: str = "synthetic", model: str | None = None):
             else:
                 from .camera import landmark_frames
                 frames = landmark_frames(model)
+                # Do not allow StopIteration to cross asyncio Future boundaries.
+                def next_frame():
+                    return next(frames, None)
                 try:
                     while True:
-                        try:
-                            ts, points = await asyncio.to_thread(next, frames)
-                        except StopIteration:
+                        sample = await asyncio.to_thread(next_frame)
+                        if sample is None:
                             break
+                        ts, points = sample
                         for event in engine.process(points, ts):
                             await ws.send(json.dumps(event))
                 finally:
