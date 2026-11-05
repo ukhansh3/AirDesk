@@ -1,7 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://airdesk.local/contracts/control/messages.schema.json",
-  "title": "AirDesk diagnostic control message",
+  "title": "AirDesk Diagnostic Control",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -21,9 +20,9 @@
         "auth.hello",
         "auth.accepted",
         "auth.rejected",
+        "heartbeat",
         "session.locked",
-        "session.closed",
-        "heartbeat"
+        "session.closed"
       ]
     },
     "sessionId": {
@@ -44,33 +43,164 @@
       "type": "object"
     }
   },
-  "allOf": [
+  "oneOf": [
     {
-      "if": {
-        "properties": {
-          "type": {
-            "const": "auth.hello"
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "payload": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "token"
-            ],
-            "properties": {
-              "token": {
-                "type": "string",
-                "minLength": 24,
-                "maxLength": 512
-              }
+      "properties": {
+        "type": {
+          "const": "auth.hello"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "token"
+          ],
+          "properties": {
+            "token": {
+              "type": "string",
+              "minLength": 24,
+              "maxLength": 512
             }
           }
         }
-      }
+      },
+      "required": [
+        "type",
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "auth.accepted"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode"
+          ],
+          "properties": {
+            "mode": {
+              "const": "diagnostic_only"
+            }
+          }
+        }
+      },
+      "required": [
+        "type",
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "auth.rejected"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "errorCode"
+          ],
+          "properties": {
+            "errorCode": {
+              "enum": [
+                "UNAUTHENTICATED",
+                "INVALID_VERSION",
+                "RATE_LIMITED"
+              ]
+            }
+          }
+        }
+      },
+      "required": [
+        "type",
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "heartbeat"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lastReceivedSequence"
+          ],
+          "properties": {
+            "lastReceivedSequence": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            }
+          }
+        }
+      },
+      "required": [
+        "type",
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "session.locked"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reason"
+          ],
+          "properties": {
+            "reason": {
+              "enum": [
+                "UNSAFE_VEHICLE",
+                "AUTH_REVOKED",
+                "APP_BACKGROUND",
+                "STALE_HEARTBEAT",
+                "NETWORK_FAILURE"
+              ]
+            }
+          }
+        }
+      },
+      "required": [
+        "type",
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "session.closed"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reason"
+          ],
+          "properties": {
+            "reason": {
+              "enum": [
+                "USER_REQUEST",
+                "EXPIRED",
+                "ERROR",
+                "REVOKED",
+                "SAFETY_LOCK"
+              ]
+            }
+          }
+        }
+      },
+      "required": [
+        "type",
+        "payload"
+      ]
     }
   ]
 }

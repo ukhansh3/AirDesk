@@ -1,20 +1,25 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://airdesk.local/contracts/session/session-state.schema.json",
-  "title": "AirDesk session projection",
+  "title": "AirDesk local UI session projection; status is not authority",
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "sessionId",
     "state",
     "safety",
     "hostApproved",
-    "updatedAtMs"
+    "updatedAtMs",
+    "foreground",
+    "authVerified",
+    "heartbeatFresh",
+    "uxAllowed"
   ],
   "properties": {
     "sessionId": {
-      "type": "string",
-      "minLength": 1
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
     },
     "state": {
       "enum": [
@@ -40,7 +45,27 @@
     },
     "updatedAtMs": {
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "foreground": {
+      "type": "boolean"
+    },
+    "authVerified": {
+      "type": "boolean"
+    },
+    "heartbeatFresh": {
+      "type": "boolean"
+    },
+    "uxAllowed": {
+      "type": "boolean"
+    },
+    "errorCode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64
     }
   }
 }

@@ -6,11 +6,11 @@ import asyncio
 import hmac
 import json
 import os
-import secrets
 from time import monotonic
 
 from .engine import GestureEngine
 from .synthetic import sample_frames
+from .protocol import DiagnosticProtocolError, parse_debug_hello
 
 async def serve(source: str = "synthetic", model: str | None = None):
     try:
@@ -27,10 +27,14 @@ async def serve(source: str = "synthetic", model: str | None = None):
     async def handler(ws):
         try:
             raw = await asyncio.wait_for(ws.recv(), timeout=5)
-            request = json.loads(raw)
-            submitted = request.get("payload", {}).get("token", "")
-            authorized = request.get("type") == "auth.hello" and isinstance(submitted, str) and hmac.compare_digest(submitted, token)
-            if not authorized:
+            _client_session, submitted = parse_debug_hello(raw)
+            if not hmac.compare_digest(submitted, token):
+                await ws.send(json.dumps({
+                    "protocolVersion":"0.1","type":"auth.rejected",
+                    "sessionId":"synthetic-demo","sequence":0,
+                    "timestampMs":int(monotonic()*1000),
+                    "payload":{"errorCode":"UNAUTHENTICATED"}
+                }, allow_nan=False))
                 await ws.close(code=1008, reason="not authorized")
                 return
             await ws.send(json.dumps({
@@ -41,7 +45,7 @@ async def serve(source: str = "synthetic", model: str | None = None):
             if source == "synthetic":
                 for ts, points in sample_frames(120):
                     for event in engine.process(points, ts):
-                        await ws.send(json.dumps(event))
+                        await ws.send(json.dumps(event, allow_nan=False))
                     await asyncio.sleep(0.034)
             else:
                 from .camera import landmark_frames
@@ -59,7 +63,7 @@ async def serve(source: str = "synthetic", model: str | None = None):
                             await ws.send(json.dumps(event))
                 finally:
                     frames.close()
-        except (json.JSONDecodeError, asyncio.TimeoutError):
+        except (DiagnosticProtocolError, asyncio.TimeoutError, TypeError):
             await ws.close(code=1008, reason="invalid handshake")
         except Exception:
             # Avoid dumping request headers / secrets into logs.

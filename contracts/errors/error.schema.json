@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AirDesk protocol error (no stack traces, tokens or personal data)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocolVersion",
+    "type",
+    "sessionId",
+    "sequence",
+    "timestampMs",
+    "payload"
+  ],
+  "properties": {
+    "protocolVersion": {
+      "const": "0.1"
+    },
+    "type": {
+      "const": "protocol.error"
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9._-]+$"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "timestampMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "type": {
+          "const": "protocol.error"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "message",
+            "retryable",
+            "correlationId"
+          ],
+          "properties": {
+            "code": {
+              "enum": [
+                "INVALID_VERSION",
+                "INVALID_PAYLOAD",
+                "UNAUTHENTICATED",
+                "FORBIDDEN",
+                "EXPIRED",
+                "RATE_LIMITED",
+                "REPLAY",
+                "STALE",
+                "UNSAFE_VEHICLE",
+                "NOT_PAIRED",
+                "SESSION_NOT_FOUND",
+                "HOST_DENIED",
+                "STREAM_UNAVAILABLE",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 180
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "correlationId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-zA-Z0-9._-]+$"
+            },
+            "retryAfterMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 60000
+            }
+          }
+        }
+      },
+      "required": [
+        "type",
+        "payload"
+      ]
+    }
+  ]
+}

@@ -13,6 +13,7 @@ import org.json.JSONObject
 data class DiagnosticUiState(
     val status: String = "연결 안 됨",
     val authorized: Boolean = false,
+    val sourceSessionId: String? = null,
     val cursorVisible: Boolean = false,
     val x: Float = .5f,
     val y: Float = .5f,
@@ -24,7 +25,7 @@ class DiagnosticWebSocketClient {
     private val http = OkHttpClient()
     private val mutable = MutableStateFlow(DiagnosticUiState())
     val state: StateFlow<DiagnosticUiState> = mutable
-    private var socket: WebSocket? = null
+    @Volatile private var socket: WebSocket? = null
 
     fun connect(token: String) {
         if (!BuildConfig.DEBUG || token.length < 24) {
@@ -46,48 +47,62 @@ class DiagnosticWebSocketClient {
                 webSocket.send(hello.toString())
             }
             override fun onMessage(webSocket: WebSocket, text: String) {
+                if (socket !== webSocket) return
                 try {
                     val event = JSONObject(text)
                     if (event.optString("protocolVersion") != "0.1") return
                     val type = event.optString("type")
+                    val payload = event.optJSONObject("payload") ?: return
+                    val sessionId = event.optString("sessionId")
                     if (type == "auth.accepted") {
-                        mutable.value = mutable.value.copy(authorized = true, status = "DEMO 연결됨 (PC 제어 불가)")
+                        if (sessionId.isBlank() || payload.optString("mode") != "diagnostic_only") return
+                        mutable.value = DiagnosticUiState(
+                            status = "DEMO 연결됨 (PC 제어 불가)",
+                            authorized = true, sourceSessionId = sessionId
+                        )
                         return
                     }
-                    if (!mutable.value.authorized) return
+                    if (!mutable.value.authorized || sessionId != mutable.value.sourceSessionId) return
                     val sequence = event.optLong("sequence", -1L)
-                    if (sequence <= mutable.value.lastSequence) return
-                    val payload = event.optJSONObject("payload") ?: return
+                    if (sequence < 0L || sequence <= mutable.value.lastSequence) return
                     when (type) {
                         "gesture.move", "gesture.drag_move" -> {
                             val x = payload.optDouble("x", Double.NaN)
                             val y = payload.optDouble("y", Double.NaN)
-                            if (!x.isFinite() || !y.isFinite()) return
+                            val confidence = payload.optDouble("confidence", Double.NaN)
+                            if (!x.isFinite() || !y.isFinite() || !confidence.isFinite() ||
+                                x !in 0.0..1.0 || y !in 0.0..1.0 || confidence !in 0.0..1.0) return
                             mutable.value = mutable.value.copy(
-                                x = x.toFloat().coerceIn(0f, 1f),
-                                y = y.toFloat().coerceIn(0f, 1f),
+                                x = x.toFloat(), y = y.toFloat(),
                                 cursorVisible = true, lastSequence = sequence
                             )
                         }
-                        "tracking.lost" -> mutable.value = mutable.value.copy(cursorVisible = false, lastSequence = sequence)
-                        else -> mutable.value = mutable.value.copy(lastSequence = sequence)
+                        "tracking.lost" -> {
+                            if (payload.optString("reason").isBlank()) return
+                            mutable.value = mutable.value.copy(cursorVisible = false, lastSequence = sequence)
+                        }
+                        "session.locked" -> mutable.value = DiagnosticUiState(status = "진단 화면 잠금")
+                        "session.closed" -> mutable.value = DiagnosticUiState(status = "진단 세션 종료")
+                        "gesture.pinch_start", "gesture.pinch_end", "gesture.drag_start" ->
+                            mutable.value = mutable.value.copy(lastSequence = sequence)
                     }
                 } catch (_: Exception) {
                     // Malformed diagnostic message must never unlock a remote input path.
                 }
             }
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                mutable.value = DiagnosticUiState(status = "진단 연결 실패: 네트워크 확인")
+                if (socket === webSocket) mutable.value = DiagnosticUiState(status = "진단 연결 실패: 네트워크 확인")
             }
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                mutable.value = DiagnosticUiState(status = "연결 종료")
+                if (socket === webSocket) mutable.value = DiagnosticUiState(status = "연결 종료")
             }
         })
     }
 
     fun disconnect() {
-        socket?.close(1000, "user disconnected")
+        val old = socket
         socket = null
+        old?.close(1000, "user disconnected")
         mutable.value = DiagnosticUiState()
     }
 }

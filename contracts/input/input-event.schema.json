@@ -1,7 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://airdesk.local/contracts/input/input-event.schema.json",
-  "title": "Reserved authenticated input message — disabled on diagnostic transport",
+  "title": "Reserved AirDesk Windows Input Commands; NOT implemented or allowed on diagnostics",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -45,5 +44,306 @@
     "payload": {
       "type": "object"
     }
-  }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "type": {
+          "const": "pointer.move"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "grantId",
+            "displayId",
+            "x",
+            "y"
+          ],
+          "properties": {
+            "grantId": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            },
+            "displayId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "x": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "y": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        }
+      },
+      "required": [
+        "type",
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "pointer.down"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "grantId",
+            "button"
+          ],
+          "properties": {
+            "grantId": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            },
+            "button": {
+              "enum": [
+                "left",
+                "right",
+                "middle"
+              ]
+            }
+          }
+        }
+      },
+      "required": [
+        "type",
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "pointer.up"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "grantId",
+            "button"
+          ],
+          "properties": {
+            "grantId": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            },
+            "button": {
+              "enum": [
+                "left",
+                "right",
+                "middle"
+              ]
+            }
+          }
+        }
+      },
+      "required": [
+        "type",
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "pointer.scroll"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "grantId",
+            "deltaX",
+            "deltaY",
+            "unit"
+          ],
+          "properties": {
+            "grantId": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            },
+            "deltaX": {
+              "type": "integer",
+              "minimum": -120,
+              "maximum": 120
+            },
+            "deltaY": {
+              "type": "integer",
+              "minimum": -120,
+              "maximum": 120
+            },
+            "unit": {
+              "const": "line"
+            }
+          }
+        }
+      },
+      "required": [
+        "type",
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "keyboard.down"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "grantId",
+            "code"
+          ],
+          "properties": {
+            "grantId": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            },
+            "code": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "modifiers": {
+              "type": "array",
+              "uniqueItems": true,
+              "maxItems": 4,
+              "items": {
+                "enum": [
+                  "Ctrl",
+                  "Alt",
+                  "Shift",
+                  "Meta"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "type",
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "keyboard.up"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "grantId",
+            "code"
+          ],
+          "properties": {
+            "grantId": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            },
+            "code": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "modifiers": {
+              "type": "array",
+              "uniqueItems": true,
+              "maxItems": 4,
+              "items": {
+                "enum": [
+                  "Ctrl",
+                  "Alt",
+                  "Shift",
+                  "Meta"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "type",
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "keyboard.text"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "grantId",
+            "text"
+          ],
+          "properties": {
+            "grantId": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          }
+        }
+      },
+      "required": [
+        "type",
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "input.release_all"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reason"
+          ],
+          "properties": {
+            "reason": {
+              "enum": [
+                "DISCONNECT",
+                "TIMEOUT",
+                "SAFETY_LOCK",
+                "USER_REQUEST",
+                "REVOKED",
+                "TRACKING_LOST"
+              ]
+            }
+          }
+        }
+      },
+      "required": [
+        "type",
+        "payload"
+      ]
+    }
+  ]
 }

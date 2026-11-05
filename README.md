@@ -25,7 +25,7 @@
 
 ```powershell
 cd gesture-engine
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev,ws]"
 python -m unittest discover -s tests -v
 $env:PYTHONPATH="src"
 python -m airdesk_gesture.cli synthetic --count 15

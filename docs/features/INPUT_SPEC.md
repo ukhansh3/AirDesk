@@ -1,7 +1,16 @@
-# Remote input specification (DRAFT / DISABLED)
+# Input feature policy — DRAFT, OS INPUT DISABLED
 
-Allowed candidate commands: pointer.move/down/up/scroll, keyboard.down/up/text and input.release_all.
-A production input command needs: mutually authenticated connection, host approval, explicit active consent, fresh sequence, bounded normalized coordinates, and parked/UX-unrestricted vehicle safety.
-Host must independently reject input after 500–1500ms heartbeat expiry (choose after testing) and release held buttons/keys.
-Windows SendInput has UIPI constraints; do not elevate, inject to secure desktop, bypass UAC or capture passwords.
-Gesture hints must NEVER directly trigger OS input without authorization. The initial demo intentionally has no enabled input receiver.
+Canonical payloads are in contracts/input/input-event.schema.json; see docs/api/API_REFERENCE.md for required fields and enums.
+
+- INPUT-01 pointer.move: grantId + displayId + normalized x/y.
+- INPUT-02 pointer.down / INPUT-03 pointer.up: grantId + button {left,right,middle}.
+- INPUT-04 pointer.scroll: grantId, deltaX, deltaY, unit=line.
+- INPUT-05 keyboard.down / INPUT-06 keyboard.up: grantId, code (key-code convention requires Windows implementation review).
+- INPUT-07 keyboard.text: grantId, text 1..1024 codepoints; never log credentials or text.
+- INPUT-08 input.release_all: explicit reason; security-priority release after disconnect.
+- INPUT-09 input.lock: safety gate action, local not a remote keystroke.
+- INPUT-10 input.unlock: user-triggered only after independently verified vehicle/host session grant.
+
+Every real input message requires peer authentication, expiry/freshness, replay protection, PC user approval, correct capability scope, local vehicle parked/UX gate and independent host watchdog.
+No UAC or secure desktop bypass. If press/down state cannot be reconciled after lost connection, release_all; never retry old down events unconditionally.
+Coordinate transforms need dynamic app window and letterboxing, not hardcoded 2560x1440.

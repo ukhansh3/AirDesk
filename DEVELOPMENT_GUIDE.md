@@ -16,7 +16,7 @@ Later milestones: explicit Windows host authorization, remote input, streaming (
 ## Windows setup
 1. Clone this PRIVATE repository.
 2. cd gesture-engine; py -3.11 -m venv .venv; .venv\Scripts\Activate.ps1.
-3. pip install -e ".[dev]"; python -m unittest discover -s tests -v.
+3. pip install -e ".[dev,ws]"; python -m unittest discover -s tests -v (including loopback WS tests).
 4. pip install -e ".[camera]" only for a real webcam; obtain the approved MediaPipe hand_landmarker.task externally and store under ignored models/.
 5. Run python -m airdesk_gesture.cli synthetic --count 15. For camera use the documented camera command.
 6. Set a fresh AIRDESK_DEV_TOKEN environment variable before starting the localhost diagnostic server.
