@@ -9,8 +9,12 @@ val localProps = Properties().apply {
 }
 val debugToken = (localProps.getProperty("AIRDESK_DEV_TOKEN")
     ?: System.getenv("AIRDESK_DEV_TOKEN") ?: "").replace("\"", "")
+val diagnosticWsUrl = (localProps.getProperty("AIRDESK_WS_URL")
+    ?: System.getenv("AIRDESK_WS_URL") ?: "ws://10.0.2.2:8765").replace("\"", "")
 
 android {
+    sourceSets.getByName("main").assets.srcDir("../../contracts")
+    sourceSets.getByName("test").resources.srcDir("../../contracts")
     namespace = "com.pleos.airdesk"
     compileSdk = 35
 
@@ -25,9 +29,11 @@ android {
     buildTypes {
         getByName("debug") {
             buildConfigField("String", "DEV_TOKEN", "\"" + debugToken + "\"")
+            buildConfigField("String", "DIAGNOSTIC_WS_URL", "\"" + diagnosticWsUrl + "\"")
         }
         getByName("release") {
             buildConfigField("String", "DEV_TOKEN", "\"\"")
+            buildConfigField("String", "DIAGNOSTIC_WS_URL", "\"\"")
         }
     }
     buildFeatures {
@@ -48,4 +54,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }
+

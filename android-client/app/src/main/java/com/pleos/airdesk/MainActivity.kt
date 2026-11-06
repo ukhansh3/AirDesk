@@ -12,11 +12,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -29,7 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 class MainActivity : ComponentActivity() {
-    private val diagnostic = DiagnosticWebSocketClient()
+    private val diagnostic by lazy { DiagnosticWebSocketClient(applicationContext) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,17 +45,30 @@ class MainActivity : ComponentActivity() {
         diagnostic.disconnect()
         super.onStop()
     }
+
+    override fun onDestroy() {
+        diagnostic.close()
+        super.onDestroy()
+    }
 }
 
 @Composable
 private fun DiagnosticScreen(state: DiagnosticUiState, onConnect: () -> Unit, onDisconnect: () -> Unit) {
     val bg = Color(0xFF081628)
     val surface = Color(0xFF162842)
-    Column(Modifier.fillMaxSize().background(bg).padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(
+        Modifier.fillMaxSize().background(bg).windowInsetsPadding(WindowInsets.safeDrawing).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
         Text("AirDesk", fontSize = 32.sp, color = Color(0xFFC7BCFF))
         Text("PLEOS · 손동작 진단 화면", color = Color.White, fontSize = 20.sp)
         Text("정차 상태: 확인되지 않음  ·  실제 Windows 제어: 잠금", color = Color(0xFFFFCA7B), fontSize = 16.sp)
         Text(state.status, color = Color(0xFFB9CCE6))
+        Text(
+            "손: ${if (state.handDetected) "인식됨" else "없음"}  ·  제스처: ${state.gesturePhase.name}",
+            color = if (state.handDetected) Color(0xFF75E6A4) else Color(0xFF96ACC7),
+            fontSize = 14.sp,
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Button(onClick = onConnect, enabled = BuildConfig.DEBUG) { Text("진단 연결") }
             Button(onClick = onDisconnect) { Text("연결 해제") }
@@ -67,10 +81,24 @@ private fun DiagnosticScreen(state: DiagnosticUiState, onConnect: () -> Unit, on
                 modifier = Modifier.align(Alignment.TopStart).padding(16.dp))
             Canvas(Modifier.fillMaxSize()) {
                 if (state.cursorVisible && state.authorized) {
-                    drawCircle(
-                        color = Color(0xFFA78BFA), radius = 15.dp.toPx(),
-                        center = Offset(size.width * state.x, size.height * state.y)
+                    val radius = 15.dp.toPx()
+                    val inset = radius * 1.6f
+                    val center = Offset(
+                        inset + (size.width - inset * 2).coerceAtLeast(0f) * state.x,
+                        inset + (size.height - inset * 2).coerceAtLeast(0f) * state.y,
                     )
+                    drawCircle(
+                        color = when (state.gesturePhase) {
+                            GesturePhase.PINCHED -> Color(0xFFFFCA7B)
+                            GesturePhase.DRAGGING -> Color(0xFFFF7A90)
+                            else -> Color(0xFFA78BFA)
+                        },
+                        radius = radius,
+                        center = center,
+                    )
+                    if (state.gesturePhase == GesturePhase.PINCHED || state.gesturePhase == GesturePhase.DRAGGING) {
+                        drawCircle(Color.White, radius * 1.45f, center, style = androidx.compose.ui.graphics.drawscope.Stroke(3.dp.toPx()))
+                    }
                 }
             }
             Text(
@@ -83,3 +111,4 @@ private fun DiagnosticScreen(state: DiagnosticUiState, onConnect: () -> Unit, on
             color = Color(0xFF96ACC7), fontSize = 14.sp)
     }
 }
+

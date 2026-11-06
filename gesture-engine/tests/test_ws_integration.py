@@ -36,9 +36,9 @@ class DiagnosticWebSocketTests(unittest.IsolatedAsyncioTestCase):
             if self.server_task.done():
                 await self.server_task
             try:
-                reader, writer = await asyncio.open_connection("127.0.0.1", 8765)
-                writer.close()
-                await writer.wait_closed()
+                async with connect("ws://127.0.0.1:8765") as websocket:
+                    await websocket.send(hello("incorrect-readiness-token-12345"))
+                    await websocket.recv()
                 break
             except OSError:
                 await asyncio.sleep(0.05)
@@ -59,7 +59,12 @@ class DiagnosticWebSocketTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(reply["payload"]["mode"], "diagnostic_only")
             event = json.loads(await asyncio.wait_for(websocket.recv(), timeout=3))
             self.assertEqual(event["type"], "gesture.move")
+            self.assertGreater(event["sequence"], reply["sequence"])
             self.assertTrue(0 <= event["payload"]["x"] <= 1)
+
+    async def test_server_refuses_non_loopback_bind(self):
+        with self.assertRaises(ValueError):
+            await serve(source="synthetic", host="0.0.0.0", port=9876)
 
     async def test_wrong_token_rejected(self):
         async with connect("ws://127.0.0.1:8765") as websocket:
@@ -79,3 +84,4 @@ class DiagnosticWebSocketTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
