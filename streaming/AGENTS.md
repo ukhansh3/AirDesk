@@ -1,3 +1,5 @@
+> **ADR-004 product scope:** Remote Windows screen streaming is optional historical R&D, NOT a required AirDesk phase or a dependency for PLEOS app-owned gesture cursor and virtual keyboard. Retain experiments and their licensing/security limitations; do not start video work without new user approval.
+
 # Streaming Agent
 Owner: streaming/**. Read root AGENTS, STREAMING_SPEC, ADR-002.
 - Do not choose Sunshine/Moonlight or WebRTC until tested on target Pleos emulator.
