@@ -3,6 +3,10 @@
 Date: 2026-11-07
 Status: Accepted user product-direction decision; implementation details and platform capabilities remain unverified.
 
+## Desktop input form-factor clarification (2026-11-07)
+
+The user explicitly requires a **computer-work-environment-style mouse and full physical-PC-like on-screen keyboard**, **not a mobile keypad**. The visual keyboard should expose desktop QWERTY rows, modifier/navigation keys and F1–F12 with honest supported/disabled behavior; mouse interaction should offer left/right click, drag and scroll. Interactions remain scoped to AirDesk-owned Compose Work UI; this is **desktop-like UX**, not a claim that Windows, arbitrary Android apps or system-wide shortcuts can be controlled. See VIRTUAL_KEYBOARD_SPEC.md and GESTURE_UI_INTERACTION_SPEC.md. The scroll/right-click camera gesture mapping needs user approval before implementation.
+
 ## Decision
 AirDesk's primary function is **hands-free interaction within AirDesk-owned PLEOS/Android Compose work screens**: a camera-driven virtual cursor, click/drag/scroll gestures, and an on-screen keyboard (Korean/English/numbers/symbols). It should not require a physical mouse or keyboard. **Windows remote desktop is not a required product feature.**
 
