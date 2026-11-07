@@ -1,3 +1,5 @@
+> **Current focus:** This protocol's gesture events are diagnostic hints, not permission to click arbitrary Android/Windows targets. Revised Phase 2 interactions are local **app-owned Compose** actions specified in [GESTURE_UI_INTERACTION_SPEC](../features/GESTURE_UI_INTERACTION_SPEC.md); a virtual keyboard is specified in [VIRTUAL_KEYBOARD_SPEC](../features/VIRTUAL_KEYBOARD_SPEC.md). Remote Host WSS and schemas remain optional legacy research (ADR-003). No protocol migration or production camera/safety authorization is approved by ADR-004.
+
 # Protocol v0.1 — DRAFT
 
 Canonical envelope:
