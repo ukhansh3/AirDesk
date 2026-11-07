@@ -1,3 +1,5 @@
+> **ADR-004 current priority:** Windows Host/mTLS/pairing/native input is **optional historical research**, not a prerequisite for revised Phase 2 PLEOS in-app gestures and virtual keyboard. Preserve existing source, security gates and the failed TLS evidence. Do not remove or weaken security, and do not route Phase 1 diagnostic hints to native input. Unless explicitly requested, make no Windows Host code changes while implementing the input-first product.
+
 # Windows Host Agent
 Owner: windows-host/**. Required: root AGENTS, INPUT_SPEC, PAIRING_SPEC, SAFETY_SPEC, protocols.
 - Windows input remains disabled unless both authenticated session and explicit local user grant.
