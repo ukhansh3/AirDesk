@@ -1,6 +1,6 @@
-# Pairing feature policy — DRAFT, NOT IMPLEMENTED
+# Pairing feature policy — Phase 2
 
-PAIR-01 to 08 correspond to message types in contracts/pairing/pairing-messages.schema.json. The exact backend/IPC transport is undecided.
+PAIR-01 to 08 correspond to message types in contracts/pairing/pairing-messages.schema.json. ADR-003 approves emulator-first mutual TLS, explicit public certificate/fingerprint enrollment, 120-second codes, five-attempt/five-minute lockout, and both-side approval. See docs/testing/PHASE2_HANDOFF.md for executed implementation evidence; this is not a production security certification.
 1. Host owner explicitly requests a one-time 8-digit code with expiry; no background auto-pair.
 2. Host displays the code **locally only**; it must not be sent to an unauthenticated remote client. Android user transcribes the code, shows human-readable device identity and waits.
 3. Host and Android user must both approve named devices. Validate the authenticated sender identity; never trust a supplied `side` field by itself. One approval is insufficient.

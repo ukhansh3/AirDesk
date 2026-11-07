@@ -22,6 +22,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,22 +34,41 @@ import androidx.compose.ui.unit.sp
 
 class MainActivity : ComponentActivity() {
     private val diagnostic by lazy { DiagnosticWebSocketClient(applicationContext) }
+    private val secure by lazy { SecureClient(applicationContext) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             val state by diagnostic.state.collectAsState()
-            DiagnosticScreen(state, onConnect = { diagnostic.connect(BuildConfig.DEV_TOKEN) },
-                onDisconnect = { diagnostic.disconnect() })
+            var phase2 by remember { mutableStateOf(false) }
+            Column(Modifier.fillMaxSize().background(Color(0xFF081628)).windowInsetsPadding(WindowInsets.safeDrawing)) {
+                Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { phase2 = false }) { Text("Phase 1 진단") }
+                    Button(onClick = { phase2 = true }) { Text("Phase 2 보안 연결") }
+                }
+                Box(Modifier.weight(1f)) {
+                    if (phase2) Phase2Screen(secure, state) { diagnostic.connect(BuildConfig.DEV_TOKEN) }
+                    else DiagnosticScreen(state, onConnect = { diagnostic.connect(BuildConfig.DEV_TOKEN) },
+                        onDisconnect = { diagnostic.disconnect() })
+                }
+            }
         }
     }
 
-    override fun onStop() {
+    override fun onResume() {
+        super.onResume()
+        secure.foreground(true)
+        secure.safetyChanged(UnavailableVehicleSafetyGateway().current)
+    }
+
+    override fun onPause() {
+        secure.foreground(false)
         diagnostic.disconnect()
-        super.onStop()
+        super.onPause()
     }
 
     override fun onDestroy() {
+        secure.close()
         diagnostic.close()
         super.onDestroy()
     }
@@ -57,7 +79,7 @@ private fun DiagnosticScreen(state: DiagnosticUiState, onConnect: () -> Unit, on
     val bg = Color(0xFF081628)
     val surface = Color(0xFF162842)
     Column(
-        Modifier.fillMaxSize().background(bg).windowInsetsPadding(WindowInsets.safeDrawing).padding(24.dp),
+        Modifier.fillMaxSize().background(bg).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text("AirDesk", fontSize = 32.sp, color = Color(0xFFC7BCFF))

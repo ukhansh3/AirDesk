@@ -28,7 +28,7 @@ Diagnostic env token is explicitly not a cryptographic device credential. Never 
 ## 4. Release blocking decisions
 
 - Approved vehicle state API/method, permission, age threshold and SDK lifecycle.
-- Pairing cryptography and secure storage, lockout, revocation on every endpoint.
+- Target-device verification of ADR-003 mutual TLS, protected key storage, lockout and persistent revocation on every endpoint.
 - Video protocol/decoder package license and PLEOS platform policy.
 - Windows restricted-input scope and explicit user consent UX.
 - Safe discovery/NAT/relay design if remote internet support is requested.
@@ -36,4 +36,24 @@ Diagnostic env token is explicitly not a cryptographic device credential. Never 
 
 ## 5. Review gate
 
-Fail if any critical security test cannot be run or fails. The only acceptable Phase-0 demo is **read-only gesture pointer visualization**; not a functioning remote desktop.
+Fail native activation if any critical security test cannot be run or fails. The Phase-0/1 path stays
+read-only gesture visualization. Phase 2 adds explicitly labeled, mutually authenticated Mock input
+simulation on a separate endpoint; it does not certify vehicle safety or enable native authority.
+
+## 6. Phase 2 review delta
+
+ADR-003 resolves the first pairing transport and timeout decisions without changing shared schemas.
+Full certificate fingerprint enrollment occurs locally on both devices before mutual TLS. Enrolled
+identity, completed pairing, PC session consent, capability grant, and verified vehicle safety remain
+separate gates. Public bootstrap data contains no code or private key; restarting drops all pending
+codes/sessions/grants. The network cannot submit HOST approval.
+
+Additional threats include cross-socket message reordering leaving a button held, malicious high
+sequence numbers poisoning accepted replay state, trust metadata surviving a revoked key, and confusing
+a Mock permit with real authority. Fail-closed cleanup and deterministic negative tests must cover
+these cases. A separate monotonic watchdog releases owned state without a UI/network response.
+
+The current native safety verifier is deliberately unavailable. Client-local foreground enforcement
+and an authenticated peer's heartbeat do not prove physical vehicle state. Adding official SDK reads
+alone will not finish host-side evidence verification; that trust design and target-device tests remain
+a release blocker. See [PHASE2_SECURITY_REVIEW](PHASE2_SECURITY_REVIEW.md) and the testing handoff.

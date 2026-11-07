@@ -1,0 +1,117 @@
+{
+  "scope": "synthetic-wire-conformance-only",
+  "warning": "These are synthetic schema fixtures. Schema validity is not authentication, consent, safety evidence or permission to call native input.",
+  "cases": [
+    {
+      "id": "integer-decimal-spelling",
+      "schema": "input/input-event.schema.json",
+      "wire": "{\"protocolVersion\":\"0.1\",\"type\":\"pointer.scroll\",\"sessionId\":\"fixture-session\",\"sequence\":1.0,\"timestampMs\":100.0,\"payload\":{\"grantId\":\"fixture-grant-00000001\",\"deltaX\":0.0,\"deltaY\":1.0,\"unit\":\"line\"}}",
+      "schemaValid": true,
+      "runtimeMustRejectUnless": "Integral numeric spellings must satisfy the same peer, session, grant and input gates as integer literals"
+    },
+    {
+      "id": "integer-exponent-spelling",
+      "schema": "session/session-messages.schema.json",
+      "wire": "{\"protocolVersion\":\"0.1\",\"type\":\"session.heartbeat\",\"sessionId\":\"fixture-session\",\"sequence\":1e0,\"timestampMs\":1e2,\"payload\":{\"ackSequence\":1e0}}",
+      "schemaValid": true,
+      "runtimeMustRejectUnless": "Authenticated current session, valid replay/freshness window and acknowledgment of an actually delivered sequence"
+    },
+    {
+      "id": "pairing-claim-shape",
+      "schema": "pairing/pairing-messages.schema.json",
+      "wire": "{\"protocolVersion\":\"0.1\",\"type\":\"pairing.claim\",\"sessionId\":\"fixture-pairing\",\"sequence\":1,\"timestampMs\":100,\"payload\":{\"pairingId\":\"fixture-offer\",\"code\":\"12345678\",\"deviceLabel\":\"Synthetic Android\"}}",
+      "schemaValid": true,
+      "runtimeMustRejectUnless": "Enrolled mTLS peer, matching current unexpired single-use offer, valid code, no cooldown; both approvals still required afterward"
+    },
+    {
+      "id": "pairing-forged-host-side-is-still-schema-valid",
+      "schema": "pairing/pairing-messages.schema.json",
+      "wire": "{\"protocolVersion\":\"0.1\",\"type\":\"pairing.approval\",\"sessionId\":\"fixture-pairing\",\"sequence\":2,\"timestampMs\":101,\"payload\":{\"pairingId\":\"fixture-offer\",\"side\":\"HOST\",\"approved\":true}}",
+      "schemaValid": true,
+      "runtimeMustRejectUnless": "HOST approval originates from the trusted local host UI; a remote peer cannot claim this role"
+    },
+    {
+      "id": "pairing-short-code",
+      "schema": "pairing/pairing-messages.schema.json",
+      "wire": "{\"protocolVersion\":\"0.1\",\"type\":\"pairing.claim\",\"sessionId\":\"fixture-pairing\",\"sequence\":1,\"timestampMs\":100,\"payload\":{\"pairingId\":\"fixture-offer\",\"code\":\"123\",\"deviceLabel\":\"Synthetic Android\"}}",
+      "schemaValid": false
+    },
+    {
+      "id": "session-request-reserved-video-shape",
+      "schema": "session/session-messages.schema.json",
+      "wire": "{\"protocolVersion\":\"0.1\",\"type\":\"session.request\",\"sessionId\":\"fixture-session\",\"sequence\":1,\"timestampMs\":100,\"payload\":{\"connectionId\":\"fixture-connection\",\"capabilities\":[\"VIEW_VIDEO\"]}}",
+      "schemaValid": true,
+      "runtimeMustRejectUnless": "Phase 3 video implementation exists; Phase 2 refuses VIEW_VIDEO as STREAM_UNAVAILABLE"
+    },
+    {
+      "id": "session-duplicate-capability",
+      "schema": "session/session-messages.schema.json",
+      "wire": "{\"protocolVersion\":\"0.1\",\"type\":\"session.request\",\"sessionId\":\"fixture-session\",\"sequence\":1,\"timestampMs\":100,\"payload\":{\"connectionId\":\"fixture-connection\",\"capabilities\":[\"POINTER\",\"POINTER\"]}}",
+      "schemaValid": false
+    },
+    {
+      "id": "pointer-down-shape-is-not-grant-authority",
+      "schema": "input/input-event.schema.json",
+      "wire": "{\"protocolVersion\":\"0.1\",\"type\":\"pointer.down\",\"sessionId\":\"fixture-session\",\"sequence\":3,\"timestampMs\":101,\"payload\":{\"grantId\":\"fixture-grant-00000001\",\"button\":\"left\"}}",
+      "schemaValid": true,
+      "runtimeMustRejectUnless": "Authenticated bound peer, live session/grant, host consent, correct scope, freshness, verified safety; mock mode cannot create native authority"
+    },
+    {
+      "id": "pointer-coordinate-out-of-range",
+      "schema": "input/input-event.schema.json",
+      "wire": "{\"protocolVersion\":\"0.1\",\"type\":\"pointer.move\",\"sessionId\":\"fixture-session\",\"sequence\":4,\"timestampMs\":102,\"payload\":{\"grantId\":\"fixture-grant-00000001\",\"displayId\":\"primary\",\"x\":1.01,\"y\":0.4}}",
+      "schemaValid": false
+    },
+    {
+      "id": "pointer-coordinate-number-string",
+      "schema": "input/input-event.schema.json",
+      "wire": "{\"protocolVersion\":\"0.1\",\"type\":\"pointer.move\",\"sessionId\":\"fixture-session\",\"sequence\":4,\"timestampMs\":102,\"payload\":{\"grantId\":\"fixture-grant-00000001\",\"displayId\":\"primary\",\"x\":\"0.2\",\"y\":0.4}}",
+      "schemaValid": false
+    },
+    {
+      "id": "bool-is-not-sequence",
+      "schema": "input/input-event.schema.json",
+      "wire": "{\"protocolVersion\":\"0.1\",\"type\":\"pointer.up\",\"sessionId\":\"fixture-session\",\"sequence\":true,\"timestampMs\":103,\"payload\":{\"grantId\":\"fixture-grant-00000001\",\"button\":\"left\"}}",
+      "schemaValid": false
+    },
+    {
+      "id": "keyboard-committed-unicode-shape",
+      "schema": "input/input-event.schema.json",
+      "wire": "{\"protocolVersion\":\"0.1\",\"type\":\"keyboard.text\",\"sessionId\":\"fixture-session\",\"sequence\":5,\"timestampMs\":104,\"payload\":{\"grantId\":\"fixture-grant-00000001\",\"text\":\"한글🚗\"}}",
+      "schemaValid": true,
+      "runtimeMustRejectUnless": "KEYBOARD grant, all authority gates and valid committed Unicode; fixture text is synthetic, never log real keyboard text"
+    },
+    {
+      "id": "keyboard-unknown-code-shape",
+      "schema": "input/input-event.schema.json",
+      "wire": "{\"protocolVersion\":\"0.1\",\"type\":\"keyboard.down\",\"sessionId\":\"fixture-session\",\"sequence\":6,\"timestampMs\":105,\"payload\":{\"grantId\":\"fixture-grant-00000001\",\"code\":\"NotARealPhysicalKey\"}}",
+      "schemaValid": true,
+      "runtimeMustRejectUnless": "Code appears in the approved UI Events whitelist; this deliberately unknown code must be rejected at runtime"
+    },
+    {
+      "id": "release-all-has-no-grant-field",
+      "schema": "input/input-event.schema.json",
+      "wire": "{\"protocolVersion\":\"0.1\",\"type\":\"input.release_all\",\"sessionId\":\"fixture-session\",\"sequence\":7,\"timestampMs\":106,\"payload\":{\"reason\":\"TIMEOUT\"}}",
+      "schemaValid": true,
+      "runtimeMustRejectUnless": "The caller is authorized for this session's cleanup; local watchdog cleanup must remain available after grant expiry"
+    },
+    {
+      "id": "unsupported-version",
+      "schema": "input/input-event.schema.json",
+      "wire": "{\"protocolVersion\":\"2.0\",\"type\":\"input.release_all\",\"sessionId\":\"fixture-session\",\"sequence\":7,\"timestampMs\":106,\"payload\":{\"reason\":\"TIMEOUT\"}}",
+      "schemaValid": false
+    },
+    {
+      "id": "duplicate-envelope-property",
+      "schema": "input/input-event.schema.json",
+      "wire": "{\"protocolVersion\":\"0.1\",\"type\":\"input.release_all\",\"sessionId\":\"fixture-session\",\"sequence\":7,\"sequence\":8,\"timestampMs\":106,\"payload\":{\"reason\":\"TIMEOUT\"}}",
+      "schemaValid": false
+    },
+    {
+      "id": "unexpected-parked-claim",
+      "schema": "input/input-event.schema.json",
+      "wire": "{\"protocolVersion\":\"0.1\",\"type\":\"pointer.down\",\"sessionId\":\"fixture-session\",\"sequence\":8,\"timestampMs\":107,\"payload\":{\"grantId\":\"fixture-grant-00000001\",\"button\":\"left\",\"parked\":true}}",
+      "schemaValid": false
+    }
+  ]
+}

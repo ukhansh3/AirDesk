@@ -7,5 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>AirDesk.Host</AssemblyName>
     <RootNamespace>AirDesk.Host</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../AirDesk.Core/AirDesk.Core.csproj" /></ItemGroup>
 </Project>

@@ -6,4 +6,7 @@ CTRL-07 release all input, CTRL-08 disconnect.
 
 Initial debug path only checks a long local token against AIRDESK_DEV_TOKEN.
 Its auth.accepted means diagnostic cursor messages are permitted. It does not prove vehicle safety or authorize PC control.
-A future production control channel must bind peer identity, session expiry, host approval, current vehicle gate, sequence/replay window and explicit fail-close watchdog.
+The separate Phase 2 mutual TLS control channel binds peer identity, session expiry, host approval,
+sequence/replay checks and an independent fail-closed watchdog. ADR-003 specifies the approved
+design. The native input authority remains unavailable until actual vehicle evidence is verified;
+the separate `/mock-input` simulation never supplies that authority. See PHASE2_HANDOFF for tests.

@@ -1,5 +1,13 @@
 # AirDesk Phase 1 개발 및 사용자 검증 안내
 
+## 2026-11-07 상태 갱신
+
+- 최신 Phase 1 기준은 원격 `dev`의 `e46aec44c9129efe028e15f07c8bd4c0edcd36a6`이다. 아래 최초 인계 절차 뒤에 PC 실행 화면·카메라 선택·프리뷰와 테스트가 추가됐다.
+- 이제 루트 `Run-AirDesk.cmd`를 더블클릭하고 카메라 번호를 선택해 시작할 수 있다. 기존 Android `local.properties`의 개발 토큰과 모델을 자동으로 읽는다. 매번 터미널 환경변수나 명령을 입력할 필요가 없다.
+- 사용자 제공 실제 웹캠 사진에서 손 관절·검지/엄지 표시를 확인했다. 사용자는 웹캠→Android 커서 및 전반적인 동작, 최신 Phase 2 요청에서는 PLEOS 연결 성공을 보고했다(`USER_REPORTED`).
+- 이전 캡처에 표시된 에뮬레이터 이름은 `Medium Phone API 37`이었다. 특정 PLEOS Connect 버전, 공식 차량 SDK·권한, 실제 정차 안전 상태 검증은 독립 확인되지 않았다(`NOT_VERIFIED`). 사용자 실기 보고를 실제 차량 안전 검증 증거로 사용하지 않는다.
+- FPS·단방향 지연·오인식률의 계측값은 없다. 실제 Windows 입력은 Phase 1 범위에 없으며 실행하지 않았다.
+
 ## 구현 범위
 
 실제 카메라 실행과 PLEOS 실행은 사용자가 수행한다. 개발 과정에서 컴퓨터 유즈와
@@ -19,16 +27,16 @@ Windows 입력, 화면 스트리밍, 차량 SDK, Pleos Stay+ 변경은 포함하
 - MediaPipe Tasks 결과에는 landmark 신뢰도가 별도로 없다. confidence=1.0은 detection/presence 임계값을 통과했다는 표식이며 보정된 확률이 아니다. handedness score를 추적 신뢰도로 오해하지 않는다.
 - PROTOCOL_SPEC의 UNSUPPORTED 오류는 공통 error schema에 없다. 이번 구현에서는 사용하지 않고 공통 문서를 수정하지 않았다.
 
-계약 파일과 기존 SDK/라이브러리 버전 및 Android 권한은 변경하지 않았다.
-Android JVM 테스트에만 org.json:json:20240303을 추가했다.
+공통 계약과 Android 권한은 변경하지 않았다. 초기 구현에서 Android JVM 테스트에만 org.json:json:20240303을 추가했다.
+후속 카메라 설치에서 같은 `cv2` 네임스페이스를 중복 설치하지 않도록 카메라 extra를 MediaPipe가 사용하는 `opencv-contrib-python>=4.9,<5` 하나로 통일했다. PC 화면은 표준 Tkinter를 사용한다.
 
 ## 자동 검증
 
-- Python: python -m unittest discover -s tests -v — 30개 통과. 단위·전체 계약·loopback WebSocket 정상 인증/거부·비루프백 bind 거부 포함.
+- Python: python -m unittest discover -s tests -v — 최신 Phase 1 기준 50개 통과(최초 인계 시 30개). 단위·전체 계약·loopback WebSocket 정상 인증/거부·비루프백 bind 거부·PC 실행 화면 설정·카메라 선택/종료 포함.
 - 카메라 자원 해제/실패: fake OpenCV/MediaPipe 테스트. 실제 하드웨어 증거가 아니다.
 - Android: :app:testDebugUnitTest — protocol 7개 + safety 4개, 총 11개 통과.
 - Android: :app:assembleDebug 통과. 에뮬레이터 실행·설치는 하지 않았다.
-- 실제 카메라 21관절, 실제 MediaPipe 추론, 실물 pinch/drag, PLEOS 접속 및 렌더링, 앱 콘텐츠 영역 실측, FPS/지연/오인식은 NOT_RUN이다.
+- 에이전트는 실제 카메라·앱·에뮬레이터를 실행하지 않았다. 이후 사용자 제공 사진과 성공 보고는 위 `USER_REPORTED` 상태로 별도 기록한다. 공식 PLEOS SDK 안전 기능, 앱 콘텐츠 영역 실측 및 FPS/지연/오인식 계측은 미검증이다.
 
 빌드 환경: Windows, Python 3.13.9, Gradle 9.6.0, Android Studio 번들 JDK,
 compileSdk 35. 설치된 SDK는 37뿐이어서 작업 폴더에 공식 SDK 35를 별도로 준비했다.
@@ -96,14 +104,14 @@ AIRDESK_WS_URL=ws://127.0.0.1:8765로 다시 debug 빌드하는 로컬 대안을
 7. 창 크기·비율·플랫폼 패널: 커서가 실제 앱 Canvas 안에 남고 시스템 영역을 덮지 않는지.
 8. 프레임 속도/체감 지연/오인식, 해상도, 카메라 장치 번호, PLEOS 버전과 결과를 기록한다. 원본 영상은 보관하지 않는다.
 
-## 저장소 전달 상태
+## 저장소 전달 이력과 현재 기준
 
 로컬 Git 인증 실패로 정상 clone은 불가능했다. GitHub 연결 API로 dev의 92파일 스냅샷을 읽어
 별도 작업 폴더에 복원했고 로컬 dev 브랜치를 초기화해 변경분을 관리했다.
-이 로컬 Git 이력은 원격 dev와 공통 이력이 없으므로 그대로 push하지 않는다.
-사용자의 dev 푸시 요청에 따라 GitHub Git Data API로 기존 원격 dev 커밋을 부모로 지정하고
-변경된 18개 파일만 새 커밋에 반영한다. 원격 head를 다시 확인하고 fast-forward로만 갱신한다.
-main은 변경하지 않는다. 이후 작업은 원격 dev를 정상 clone/pull한 체크아웃을 사용한다.
+초기에 만든 별도 로컬 Git 이력은 원격 dev와 공통 이력이 없으므로 그대로 push하지 않았다.
+사용자 요청에 따라 GitHub Git Data API로 원격 이력을 유지하면서 `6efc4489a8d828a76dad487ccc2f48009c388b38`,
+이어서 PC 실행 화면을 포함한 `e46aec44c9129efe028e15f07c8bd4c0edcd36a6`을 dev에 반영했다. main은 변경하지 않았다.
+Phase 2는 해당 원격 커밋과 Git 객체/트리를 확인한 별도 정상 dev 체크아웃을 기준으로 개발한다.
 
 다음 Phase 전에 위 실물 테스트를 완료하고 임계값과 watchdog을 실측 보정한다.
 실제 Windows 입력·차량 안전·production 인증은 별도 승인과 검증이 필요하다.

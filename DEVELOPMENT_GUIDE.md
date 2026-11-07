@@ -8,8 +8,8 @@ Later milestones: explicit Windows host authorization, remote input, streaming (
 - PC webcam: Python 3.11+, OpenCV, Google MediaPipe Tasks Vision.
 - Gesture state: typed Python module and deterministic unit tests.
 - Control diagnostics: localhost-only WebSocket with a fresh dev token, no OS input.
-- Windows: C# .NET 10 WPF, host consent and session controller (scaffold).
-- Android: Kotlin, Jetpack Compose, ViewModel, safety interface (scaffold).
+- Windows: C# .NET 10 WPF plus the ASP.NET Core shared framework for local mutual TLS; separate policy core, host consent, session controller and Mock input backend.
+- Android: Kotlin, Jetpack Compose, fail-closed safety interface, separate diagnostic and secure-session paths.
 - Contracts: JSON Schema 2020-12; no mandatory Fastify server or cloud DB.
 - Video protocol: undecided until tested on actual PLEOS Emulator 2.1.0.
 
@@ -26,3 +26,16 @@ Later milestones: explicit Windows host authorization, remote input, streaming (
 ## Gates
 G0 protocol + pure gesture tests, G1 real webcam, G2 emulator localhost connection, G3 authentic pairing + vehicle safety, G4 Windows input, G5 screen stream, G6 Pleos Stay+ Work adapter.
 Record measured performance; never invent FPS/latency. Main is the baseline; use dev/feature branches for implementation.
+
+## Phase 2
+
+Approved decisions: [ADR-003](docs/decisions/ADR-003-PHASE2-SECURE-CONTROL.md).
+Start the separate host with `Run-AirDeskHost.cmd`; open `android-client/` in Android Studio.
+Public identity enrollment and both-side pairing approval precede a separately approved session.
+Only the explicitly labeled Mock endpoint is available for emulator input tests while actual
+vehicle evidence remains unverified. Native activation cannot be enabled by a development switch.
+
+Run `scripts/verify-phase2.ps1` for the ordered headless harness, or use the commands documented in
+[PHASE2_HANDOFF](docs/testing/PHASE2_HANDOFF.md). That handoff separates build/unit evidence from
+actual PLEOS, key-store, camera and native-input tests. Do not start a GUI, camera, emulator or real
+input automatically as part of these tests.

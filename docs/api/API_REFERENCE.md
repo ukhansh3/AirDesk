@@ -1,6 +1,6 @@
 # AirDesk API / Protocol Reference v0.1 — Contract-first
 
-**Status: DRAFT design, not a working public API.** The initial implementation is a **local diagnostic WebSocket** that accepts a debug hello and emits synthetic or webcam-based gesture hints to an Android read-only cursor. Actual Windows input injection, mutual pairing, session grants and video streaming remain **disabled / unimplemented**.
+**Status: private emulator-first development API, not a production remote desktop.** Phase 1 is a local diagnostic WebSocket for a read-only cursor. Phase 2 adds a separate mutually authenticated host/session and Mock input path against the existing schemas. Actual native input remains unavailable until independently verified vehicle safety; video is deferred. Implementation limits are in [PHASE2_IMPLEMENTATION.md](PHASE2_IMPLEMENTATION.md), with executed evidence in [PHASE2_HANDOFF](../testing/PHASE2_HANDOFF.md).
 
 ## 0. Canonical sources and versioning
 
@@ -9,8 +9,8 @@
 - Transport architecture:
   - Gesture hints: Windows/Python → PLEOS Android over debug-only WebSocket (existing code).
   - Diagnostic control: two-way debug WebSocket (existing hello/accepted only).
-  - Future pairing/session: mutually authenticated control channel (not implemented).
-  - Future input: Android → Windows host over a separate authorized input channel (not implemented).
+  - Pairing/session: separate mutually authenticated WSS control channel, per ADR-003.
+  - Input: separate authorized WSS endpoints; Mock simulation and unavailable native authority remain distinct.
   - Video: dedicated stream (not selected). **Never transmit video frames as REST JSON, Supabase rows or gesture payloads**.
 - **No REST routes are currently approved or implemented.** The absence of OpenAPI is deliberate, not an implied `POST /sessions` contract.
 
@@ -85,9 +85,9 @@ Example hello (placeholder, not a real reusable secret):
 
 **Security:** local `ws://` and dev token do not establish mutual identity, transport encryption, host approval or a Windows input grant. Never expose this service publicly or re-use it for production input. The real control transport requires a separate security ADR.
 
-## 4. Pairing API: PROPOSED, NOT IMPLEMENTED
+## 4. Pairing API: Phase 2 implementation
 
-Schema: `contracts/pairing/pairing-messages.schema.json`. Proposed code is **8 digits**, expiration policy to be approved, never stored or logged in plaintext. Both user interfaces must approve the named remote counterpart. **The 8-digit code is an out-of-band user-transcribed secret: the host displays it locally, and the Android client submits it only when the user types it. Broadcasting pairing.offer to an unauthenticated network peer would defeat the purpose of pairing.**
+Schema: `contracts/pairing/pairing-messages.schema.json`. The code is **8 digits**, expires after 120 seconds, and five failures impose a five-minute cooldown. It is never persisted or logged. Both user interfaces must approve the named remote counterpart. **The 8-digit code is an out-of-band user-transcribed secret: the host displays it locally, and the Android client submits it only when the user types it. Broadcasting pairing.offer to an unauthenticated network peer would defeat the purpose of pairing.**
 
 | type | direction | payload | outcome |
 | --- | --- | --- | --- |
@@ -102,9 +102,9 @@ Schema: `contracts/pairing/pairing-messages.schema.json`. Proposed code is **8 d
 
 Supported rejection reasons: expired, already claimed, invalid format, too many attempts, approval denied, session conflict, identity mismatch. Explicit return error codes via the common protocol error contract, not ambiguous booleans.
 
-**Gate:** before implementing, decide cryptographic identity, session secret storage, challenge verification, expiration, revocation across restart, and whether code display requires a direct PC user action. Avoid inventing homemade cryptography or unsecured auto-pairing.
+**Approved design:** ADR-003 specifies mutual TLS, explicit certificate-fingerprint enrollment, protected OS key storage, local PC initiation, expiration and revocation. Runtime/device verification remains separate from design approval; see the handoff. Avoid invented cryptography or unsecured auto-pairing.
 
-## 5. Session API: PROPOSED, NOT IMPLEMENTED
+## 5. Session API: Phase 2 implementation
 
 Schema: `contracts/session/session-messages.schema.json`. Transport connectivity, session status and input grants are different.
 
@@ -117,7 +117,7 @@ Schema: `contracts/session/session-messages.schema.json`. Transport connectivity
 | session.revoke | either | reason | Stop display/input locally first; notify peer if possible |
 | session.ended | host → Android | reason | Clear session state, IDs and held input |
 
-This is a **future state machine**, not implemented: DISCONNECTED → PAIRING → WAITING_APPROVAL → CONNECTED → LOCKED / ERROR → DISCONNECTED. CONNECTED alone **never** means PC control is allowed.
+The session state machine is DISCONNECTED → PAIRING → WAITING_APPROVAL → CONNECTED → LOCKED / ERROR → DISCONNECTED. CONNECTED alone **never** means PC control is allowed. Grants expire within ten minutes and require explicit fresh approval to renew; a one-second heartbeat and three-second watchdog do not extend their lifetime.
 
 An input grant is always cryptographically bound to the authenticated peer and current session. The caller cannot become HOST or VEHICLE just by sending a `side` field; the receiver checks the authenticated identity.
 
@@ -125,7 +125,7 @@ Do not auto-resume input after reconnect or on transition back to PARKED: requir
 
 Session state snapshot schema `contracts/session/session-state.schema.json` is a UI projection; it cannot serve as the authoritative vehicle state or permission source.
 
-## 6. Input API: PROPOSED, DISABLED
+## 6. Input API: Mock implementation; native activation unavailable
 
 Schema: `contracts/input/input-event.schema.json`. Inputs MUST come only from an authenticated, approved session over an encrypted channel. The current diagnostic server intentionally has **no input handler**.
 
@@ -135,7 +135,7 @@ Schema: `contracts/input/input-event.schema.json`. Inputs MUST come only from an
 | pointer.down | grantId, button | button=left/right/middle; hold tracked per session |
 | pointer.up | grantId, button | idempotent release of held button |
 | pointer.scroll | grantId, deltaX, deltaY, unit | bounded integer [-120,120], unit=line |
-| keyboard.down | grantId, code | key code naming contract to be finalized before OS integration |
+| keyboard.down | grantId, code | approved W3C UI Events code whitelist in ADR-003 |
 | keyboard.up | grantId, code | releases held key; idempotent |
 | keyboard.text | grantId, text | 1..1024 chars; never logged; cannot bypass OS permission |
 | input.release_all | reason | emergency release; host prioritizes release even on safety revocation |
@@ -144,7 +144,7 @@ Schema: `contracts/input/input-event.schema.json`. Inputs MUST come only from an
 
 Coordinate mapping must include content viewport/letterboxing, display orientation and multi-monitor selection; screen pixels are **not** transmitted as raw unbounded x/y. For secure desktop/UAC, respect Windows UIPI restrictions; never elevate or bypass.
 
-Example valid input message **for contract tests only** (not ready to transmit to Windows):
+Example valid input message **for contract tests** (not a native authorization):
 ~~~json
 {
   "protocolVersion":"0.1",
@@ -191,17 +191,17 @@ If any check fails, **never execute an input command**. Android must immediately
 
 - Each event family: at least one positive fixture, missing field, invalid enum, unexpected property, incorrect protocol version, out-of-range numeric and replay/out-of-order test.
 - `jsonschema` CI verifies syntax+payload shapes; sender/receiver runtime ordering is separate logic.
-- Pairing and real input schema presence does **NOT** mean Windows input implementation exists.
+- Schema presence or a compiled native backend does **NOT** establish safe native input activation. See the Phase 2 handoff for runtime tests and outstanding gates.
 - Webcam input must be validated with a local compatible MediaPipe model and camera.
 - PLEOS app window + SDK safety must be verified on actual emulator (not inferred from Compose compile).
 - Video rendering and embedded client require independent streaming PoC and licensing confirmation.
 
 ## 10. Open decisions blocking LIVE_REMOTE
 
-- Pairing cryptographic identity/cert storage, explicit approvals, code TTL, lockout policy.
+- Actual device validation of the ADR-003 identity/key-storage, approval and expiration implementation.
 - Which side supplies and validates vehicle safety evidence without trusting forged network flags.
-- Host watchdog expiry and session TTL, measured with network jitter.
-- Windows keyboard scan-code/unicode behavior, multi-monitor and secure desktop limitations.
+- Target-device watchdog/TTL behavior under measured network jitter (approved defaults are in ADR-003).
+- Windows keyboard Unicode/IME behavior and multi-monitor mapping in a separately safety-approved native test. The UI Events key-name convention is approved.
 - WebRTC vs Sunshine/Moonlight on target PLEOS, packaging/distribution/permissions.
 - Possible future REST endpoints only after approved ADR and authenticated use case.
 

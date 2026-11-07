@@ -14,4 +14,12 @@ Canonical envelope:
 - Raw webcam video is not sent by the gesture transport.
 - All protocol DTOs must validate against contracts/ JSON Schemas.
 
-Errors: INVALID_VERSION, INVALID_PAYLOAD, UNAUTHENTICATED, STALE, REPLAY, UNSAFE_VEHICLE, RATE_LIMITED, UNSUPPORTED.
+Errors are defined exclusively by `contracts/errors/error.schema.json`. In particular, the old prose
+name `UNSUPPORTED` is not a canonical error and must not be emitted. Use the existing applicable
+error (for example `STREAM_UNAVAILABLE` for the deferred video capability).
+
+Phase 2 transport, trust bootstrap, endpoint separation and approved timeout/key conventions are
+specified in [ADR-003](../decisions/ADR-003-PHASE2-SECURE-CONTROL.md). The diagnostic channel remains
+read-only. `/mock-input` is a distinct authenticated simulation endpoint; it cannot authorize the
+native `/input` backend. Actual platform/runtime verification is recorded separately in
+[PHASE2_HANDOFF](../testing/PHASE2_HANDOFF.md). No JSON Schema is changed by this clarification.

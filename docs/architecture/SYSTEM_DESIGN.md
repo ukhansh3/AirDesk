@@ -3,10 +3,16 @@
 ## Runtime components
 1. Webcam / OpenCV -> MediaPipe 21-landmark detection (camera frames local, no recordings).
 2. Gesture Engine -> normalized [0,1] pointer events, pinch, drag, tracking.lost, jitter filtering.
-3. Local WebSocket diagnostics -> Android preview cursor; ephemeral dev token; no Windows OS input.
-4. Android PLEOS client -> Compose UI and fail-closed safety gate; future authenticated remote video+input.
-5. Windows Host -> explicit user confirmation, authenticated session; future SendInput and display capture.
+3. Local WebSocket diagnostics -> Android preview cursor; local dev token (desktop panel reads ignored local.properties); no Windows OS input.
+4. Android PLEOS client -> Compose diagnostic and secure-session UIs, touch/keyboard/gesture candidates, fail-closed actual safety gateway.
+5. Windows Host -> explicit public certificate enrollment and mutual TLS, pairing/session approval, scoped grants, Mock input engine, separately gated native backend. Actual native activation remains unavailable; display capture is deferred.
 6. Streaming adapter -> Sunshine/Moonlight and WebRTC feasibility PoCs; no selected transport yet.
+
+Phase 2 WSS binds 127.0.0.1:8766 with distinct `/control`, `/mock-input`, and `/input` routes.
+The Android emulator uses 10.0.2.2. Mock input exercises the authorized event path without native
+calls while actual safety stays UNKNOWN. It cannot construct native authority. See
+[ADR-003](../decisions/ADR-003-PHASE2-SECURE-CONTROL.md) and
+[Phase 2 handoff](../testing/PHASE2_HANDOFF.md) for exact limits and evidence.
 
 ## Trust boundaries
 - A raw gesture event is never authorization to inject OS input.

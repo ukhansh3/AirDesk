@@ -15,6 +15,7 @@ val diagnosticWsUrl = (localProps.getProperty("AIRDESK_WS_URL")
 android {
     sourceSets.getByName("main").assets.srcDir("../../contracts")
     sourceSets.getByName("test").resources.srcDir("../../contracts")
+    sourceSets.getByName("test").resources.srcDir("../../integration-tests/fixtures")
     namespace = "com.pleos.airdesk"
     compileSdk = 35
 
