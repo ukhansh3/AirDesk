@@ -1,3 +1,5 @@
+> **Current product architecture (ADR-004):** PC webcam (dev only) → MediaPipe gesture hints → local debug WS → PLEOS AirDesk-owned Compose UI cursor/action router → in-app clickable/scrollable/draggable targets and focused text editor/on-screen keyboard. This action router and keyboard are **planned, not implemented**. The older Windows Host/WSS/streaming architecture documented below remains optional historical research; its security constraints still apply. See [DATA_FLOW.md](DATA_FLOW.md).
+
 # AirDesk System Design
 
 ## Runtime components
