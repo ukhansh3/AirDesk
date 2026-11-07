@@ -1,10 +1,10 @@
 # AirDesk — Root Agent Rules
 
 ## Goal
-Develop an independent parked-only remote-work system: a Windows host, a PLEOS Android client, and a PC webcam gesture engine. This repository is a development scaffold, NOT a completed remote-desktop product.
+**Current product requirement (ADR-004):** hands-free pointer and virtual keyboard interactions **inside AirDesk-owned PLEOS/Android Compose screens**. Phase 1 camera input is currently a Windows developer PC webcam, not a verified vehicle camera. The earlier Windows remote desktop/host/pairing/mTLS architecture is optional historical research, not a dependency of revised Phase 2. Preserve code, contracts and test evidence; do not rebrand historical Phase 2 as the new feature.
 
 ## Source of truth
-Explicit user decisions > root AGENTS.md > approved ADRs > docs/features and docs/api > contracts > module-level AGENTS.md. Review conflicts with the user instead of silently changing behavior.
+Explicit user decisions > ADR-004 current product scope > root AGENTS.md > approved ADRs > docs/features and docs/api > contracts > module-level AGENTS.md. Review conflicts with the user instead of silently changing behavior.
 
 ## Module ownership
 - gesture-engine/**: Python/OpenCV/MediaPipe
@@ -14,6 +14,14 @@ Explicit user decisions > root AGENTS.md > approved ADRs > docs/features and doc
 - contracts/** and docs/api/**: supervisor-owned protocol
 - integration-tests/** and docs/testing/**: integration/QA
 Do not modify another agent's area or shared schemas without coordination. Every PR reports feature IDs, tests, contract impact and unresolved risks.
+
+## Input-first implementation rules
+- Read ADR-004, docs/features/GESTURE_UI_INTERACTION_SPEC.md, docs/features/VIRTUAL_KEYBOARD_SPEC.md and docs/testing/PHASE2_REVISED_HANDOFF.md before new implementation.
+- No global Android taps, Accessibility automation, external-app event injection or Windows SendInput for revised Phase 2. Dispatch only registered app-owned Compose actions and focused text-edit operations.
+- The Phase 1 diagnostic WebSocket supplies *hints*, not trusted production input authority; explicitly label local interactive previews DEMO.
+- Production Work input must fail closed while official PLEOS parked/UX signal or freshness is UNKNOWN; mocks cannot impersonate official vehicle evidence.
+- Maintain original Windows Host as an isolated optional legacy subsystem without removing security checks. Never replace ADR-003 historical test findings or silently change canonical wire schemas.
+- Do not claim Korean IME, scroll gesture, PLEOS camera, or revised Phase 2 completed until code and actual tests prove them.
 
 ## Absolute safety rules
 - FAIL CLOSED: UNKNOWN, MOVING, UX_RESTRICTED, STALE or permission failure means no remote screen and no input.
