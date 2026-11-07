@@ -7,7 +7,9 @@ Specification / boundary:
   Manual capture remains available. Each finger learns its own shape-vector direction. A pose
   that cannot be separated from neutral fails at that stage and may be retried.
 * Camera normalized x/y map DIRECTLY to the full 1120x360 virtual surface. There
-  is no hidden keyboard rescaling. The side pad is a separate intent region.
+  is no hidden keyboard rescaling. Shared median/time-aware XY stabilization
+  reduces dot/hover jitter; raw validity, calibration shape and presses stay unfiltered.
+  The side pad is a separate intent region.
 * Per-finger state is independent, has one Down per neutral-to-flex cycle, captures
   its pre-Down hover, and must observe neutral again after loss. No hold-repeat.
 * Result array order is never identity. Duplicate labels, crossing, implausible
@@ -26,6 +28,7 @@ from uuid import uuid4
 
 from .camera import CameraHand, CameraSample
 from .engine import GestureEngine
+from .stabilization import StablePointFilter
 
 FINGERS = ("thumb", "index", "middle", "ring", "little")
 HANDS = ("left", "right")
@@ -103,6 +106,8 @@ class AirTypingEngine:
         self._directions: dict[tuple[str, str], Feature] = {}
         self._fingers = {(hand, finger): _Finger() for hand in HANDS for finger in FINGERS}
         self._wrists: dict[str, tuple[float, float]] = {}
+        self._joint_filters: dict[tuple[str, int], StablePointFilter] = {}
+        self._positions: dict[tuple[str, int], tuple[float, float]] = {}
         self._neutral_order: float | None = None
         self._last_ms = -1
         self._capture_at: int | None = None
@@ -224,6 +229,9 @@ class AirTypingEngine:
     def _release_hand(self, hand: str):
         for name in FINGERS:
             self._fingers[hand, name] = _Finger()
+        for index in range(21):
+            self._joint_filters.pop((hand, index), None)
+            self._positions.pop((hand, index), None)
         if hand == "right":
             self._mouse_active = False
             self._mouse_since = None
@@ -233,6 +241,22 @@ class AirTypingEngine:
     def _release_all(self):
         for hand in HANDS:
             self._release_hand(hand)
+
+    def _stabilize_positions(self, hands: dict[str, CameraHand], now: int):
+        # Only already-validated raw observations reach this presentation/hover
+        # path. Shape features, identity checks and the legacy mouse classifier
+        # continue to consume RAW samples; filtering cannot hide invalid evidence.
+        for side, hand in hands.items():
+            for index, point in enumerate(hand.landmarks):
+                key = side, index
+                stabilizer = self._joint_filters.get(key)
+                if stabilizer is None:
+                    stabilizer = self._joint_filters[key] = StablePointFilter()
+                position = stabilizer.update(point[:2], now)
+                if position is None:
+                    self._positions.pop(key, None)
+                else:
+                    self._positions[key] = position
 
     def _calibrate(self, now: int, hands: dict[str, CameraHand], features: dict[tuple[str, str], Feature]):
         if self._automatic:
@@ -380,7 +404,10 @@ class AirTypingEngine:
         for name in FINGERS:
             key = side, name
             state = self._fingers[key]
-            xy = hand.landmarks[TIP[name]][:2]
+            xy = self._positions.get((side, TIP[name]))
+            if xy is None:
+                self._fingers[key] = _Finger()
+                continue
             down, up = self._thresholds[key]
             value = self._projection(key, features[key])
             if value <= up:
@@ -464,10 +491,11 @@ class AirTypingEngine:
                 if hand is None:
                     continue
                 state = self._fingers[side, name]
-                x, y = state.captured if state.pressed else hand.landmarks[TIP[name]][:2]
+                position = self._positions.get((side, TIP[name]))
+                x, y = state.captured if state.pressed and position is not None else position or (.5, .5)
                 fingers.append({"hand": side, "finger": name, "x": x, "y": y,
-                                "pressed": bool(self.armed and state.pressed and not (side == "right" and self._mouse_active)),
-                                "valid": bool(not (side == "right" and self._mouse_active))})
+                                "pressed": bool(position is not None and self.armed and state.pressed and not (side == "right" and self._mouse_active)),
+                                "valid": bool(position is not None and not (side == "right" and self._mouse_active))})
         mouse = {"active": self.armed and self._mouse_active, "valid": False,
                  "x": .5, "y": .5, "pressed": False, "dragging": False}
         if mouse["active"] and "right" in hands and self._mouse.last_xy is not None:
@@ -499,6 +527,7 @@ class AirTypingEngine:
         for side in HANDS:
             if side not in hands:
                 self._release_hand(side)
+        self._stabilize_positions(hands, now)
         if self.armed:
             for side in HANDS:
                 hand = hands.get(side)

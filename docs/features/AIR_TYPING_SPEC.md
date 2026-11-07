@@ -27,6 +27,14 @@ The current touch/single-Pinch profile remains available separately.
   This estimates motion, not contact/pressure or a metric keyboard plane.
 - Map camera image x/y to the complete normalized keyboard/mouse design surface (1120x360).
   Show hovered keys before enabling typing. This is an image-space mapping, not calibrated physical depth.
+- Camera joint markers and AIR hover XY use the same stabilization profile after their raw validity/
+  identity checks: median of three samples, time-aware EMA with 60ms time constant, normalized radial
+  soft deadzone .004. Small stationary jitter is suppressed, while cumulative intentional motion still
+  moves the point. A single-frame spike is rejected; loss/invalidity clears history immediately.
+  Filters have separate lifecycle histories but the same settings. Raw CameraSample landmarks,
+  calibration features/noise, Down/Up thresholds and the existing mouse path stay unchanged.
+  Captured key XY remains anchored until release. The filter adds response lag; actual webcam
+  stability/latency must be checked separately. A stable-looking dot cannot force calibration to pass.
 - Require explicit arm plus local DEMO enable. Each finger must rearm in neutral, then produce one
   down edge after calibrated hysteresis/duration. Bind the pre-stroke key until release. No hold-repeat.
 - Neutral rearm is independent per finger (200ms); a held pinky cannot block the same hand's index.

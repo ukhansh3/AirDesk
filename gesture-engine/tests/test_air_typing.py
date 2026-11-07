@@ -418,3 +418,14 @@ class AirTypingTests(unittest.TestCase):
         for action, time in (("send_input", self.now), ("arm", -1), ("reset", True)):
             with self.assertRaises(ValueError):
                 self.engine.command(action, time)
+
+    def test_visual_smoothing_cannot_turn_raw_unstable_shape_into_valid_calibration(self):
+        self.engine.command("start_calibration", self.now)
+        for _ in range(20): self.frame(advance=250)
+        for frame in range(60):
+            left = mcp_tap("left", "index", angle=.45) if frame % 2 else observed("left")
+            value = self.frame(hands=(left, observed("right")))
+        # XY is stabilized for drawing/hover, while the large RAW palm-relative
+        # shape oscillation still prevents a stable neutral capture.
+        self.assertEqual(value["stage"], "NEUTRAL")
+        self.assertFalse(value["armed"])

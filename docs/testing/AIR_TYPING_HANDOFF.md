@@ -1,7 +1,7 @@
 # Experimental ten-finger midair typing — handoff
 
 Date: 2026-11-07. Scope: isolated AirDesk-owned DEBUG DEMO only.
-Status: **IMPLEMENTED (EXPERIMENTAL) + AUTOMATED PASS: automatic calibration and PC large-keyboard window; actual webcam typing accuracy and PLEOS/PC window rendering NOT_RUN; operational vehicle input BLOCKED**.
+Status: **IMPLEMENTED (EXPERIMENTAL) + AUTOMATED PASS: XY stabilization, automatic calibration and PC keyboard preview; Python checks newly executed, unchanged Android checks retained/cached; actual webcam jitter improvement, typing accuracy and PLEOS/PC rendering NOT_RUN; operational vehicle input BLOCKED**.
 
 ## What is implemented
 
@@ -34,6 +34,34 @@ It opens only when the user presses the button; the automatic test harness does 
 Disconnect/stop clears the display; an independent 500 ms local display watchdog also removes stale
 dots/highlights. Closing/reopening does not restore an expired held estimate.
 
+## Joint-dot and hover stabilization update
+
+The user reported excessive movement of the camera's 21 joint dots while holding a hand nearly
+still. This update stabilizes the displayed joint positions and outgoing AIR hover coordinates.
+It does not change MediaPipe inference, the camera image, raw `CameraSample`/`CameraHand` landmarks,
+calibration feature/noise measurements, or press/release thresholds. A smoother outline does not
+prove a more accurate hand estimate or a successful typing calibration.
+
+- After raw coordinate/identity validity checks, each valid joint uses the shared bounded
+  `StablePointFilter`: median window 3, elapsed-time EMA with a 60 ms time constant, and a normalized
+  radial soft deadzone of 0.004. A sustained median jump greater than 0.25 restarts positional
+  history; a gap greater than 750 ms also reseeds it. These are model settings, not measured latency.
+- The PC webcam overlay applies that algorithm only when drawing dots. Existing image mirroring,
+  resizing and annotations remain; detector inputs and yielded landmark samples are unchanged.
+  The panel labels this **관절 표시: 떨림 안정화** rather than claiming raw inference was corrected.
+- AIR applies the same coordinate algorithm after raw validation, including while unarmed and
+  calibrating. Its payload carries stabilized fingertip hover positions to Android and the large PC
+  keyboard. The PC keyboard performs its existing geometry projection without another filter or
+  motion gain. Camera-overlay and AIR histories start separately, so transient outputs need not match.
+- Pressed-key coordinates remain captured at the pre-stroke hover until release. The visible camera
+  fingertip can therefore move while the pressed-key marker stays anchored. Classification features,
+  calibration stability rejection and the existing side-mouse recognizer stay on their prior raw path.
+- Missing/invalid/ambiguous hands, source loss and lifecycle/reset boundaries clear the affected
+  coordinate history immediately. Filtering cannot repair a rejected raw hand or keep its old dots alive.
+
+No schema, SDK, library or permission changes accompany this positional update. Hardware tuning and
+before/after jitter, response delay and false/missed typing measurements remain unexecuted.
+
 The approved recognition/profile design is documented in
 [AIR_TYPING_SPEC.md](../features/AIR_TYPING_SPEC.md). Complete landmark-derived frames are
 experimental hints, not proof of physical key contact or trustworthy vehicle safety. No Windows or
@@ -56,8 +84,9 @@ global Android input, another app's text, video transmission or camera recording
   cached estimate as a fresh network frame. The client cancels/disarms on rejected wire data and
   independently releases input if accepted frames stop arriving for 250 ms. These transport checks
   are stricter than the recognizer's internal stale-hand window; they are not measured hardware latency.
-  The sample timestamp is PC monotonic time taken before the camera read, not a verified sensor
-  exposure timestamp. Its age includes read/inference/queue delay; the guard cannot prove sensor freshness.
+  The sample timestamp is PC monotonic time taken after a successful camera read/mirror and before
+  inference, not a verified sensor exposure timestamp. Its age covers subsequent inference/queue delay;
+  it does not measure blocking time inside the camera read or prove sensor freshness.
 - Disarm/reset, loss or ambiguity, calibration changes, disconnect, app background/window-focus loss,
   unsafe state and stale data clear owned keys/buttons. Reconnection does not automatically resume.
 
@@ -139,6 +168,10 @@ presses per finger, simultaneous-key recognition, text accuracy, latency and fat
 actual typed text, passwords, frames or identifiable hand recordings in the repository.
 Also verify manual open/close, resizing, key/marker alignment, local stale clearing and multi-window
 focus with the large PC display. Its mock-Tk tests are not proof of actual Windows font/DPI rendering.
+For the stabilization update, first watch the camera dots with typing disarmed: hold still, move
+slowly and then deliberately move farther. Separately check the AIR keyboard markers after connection,
+including loss/reacquisition and a pressed-key capture. Record residual jitter and lag independently
+from raw calibration success and actual key recognition; no measured improvement is claimed yet.
 
 Ring/little-finger coupling, thumb geometry, occlusion, hand identity ambiguity and monocular depth
 can prevent comfortable or reliable typing. Automatic synthetic tests cannot establish real typing
@@ -167,9 +200,9 @@ before the estimate can receive a fresh wire envelope.
 `scripts/verify-input-first.ps1` preserves its previous stages and adds a separate experimental AIR
 contract stage; it records actual stage/test counts and leaves camera-typing accuracy as a manual gate.
 
-### Current final complete harness result
+### Previous automatic-calibration/PC-window baseline — historical result
 
-The final ordered harness for the automatic-calibration and PC-window update exited **0**. The
+The prior ordered harness for the automatic-calibration and PC-window update exited **0**. The
 sanitized report is `out/input-first-verification/verification.json`, generated
 **2026-11-07T06:07:23.3594993Z** (2026-11-07 15:07:23 KST). All code was frozen for this run.
 
@@ -210,7 +243,7 @@ after adding automatic-start/cancel coverage. The added test observes a new disa
 no advancement with missing hands, persistent WAITING after cancel, and rejection of arm before a
 valid calibration. This is source/transport evidence, not actual pose-recognition accuracy.
 
-The final complete harness above covers one-start automatic progression, no advancement without
+The previous complete harness above covers one-start automatic progression, no advancement without
 stable correct poses, cancel/disarm without automatic resume, manual-command compatibility,
 MCP downstroke sensitivity and independent finger rearm/chords.
 The versioned contracts remain unchanged by this automatic-calibration update.
@@ -223,6 +256,32 @@ The shared fixture is `integration-tests/fixtures/pc-keyboard-geometry.json`; An
 the same rectangles. No real Tk window, camera or emulator was launched by these tests.
 The final complete run includes the PC callback/UI integration, including disconnect clearing and
 display-callback isolation. Display estimates do not grant local editor, vehicle or OS input authority.
+
+### XY stabilization — current final verification
+
+The independent targeted integration module `test_air_stabilization_integration.py` passed **3 tests,
+exit 0, 0.318 seconds**. Synthetic stationary XY noise was reduced in the actual AIR payload and passed
+unchanged through the PC state model; mocked Canvas circles matched one design-space projection.
+Small independent joint noise produced no Down in the calibrated armed fixture. Invalid raw observations,
+loss and a new calibration epoch cleared/reseeded displayed state. These checks exercise source output
+and the preview adapter, not a cosmetic display-only substitute, and do not measure hardware accuracy.
+
+The final ordered harness for this positional update exited **0**, with sanitized report
+`out/input-first-verification/verification.json` generated **2026-11-07T06:43:21.0927710Z**
+(2026-11-07 15:43:21 KST). All stabilization code was frozen for this run.
+
+| Stage | Current actual result | Duration and limits |
+| --- | --- | --- |
+| Python regression and AIR models | **136 tests newly executed, PASS** | 24.301 s; includes 8 shared filter tests, 31 AIR recognizer tests, 6 camera-overlay tests and 3 independent cross-pipeline tests. This retains the 118-test prior base and adds 18 regressions. No real webcam is opened. |
+| Original canonical wire fixtures | **5 tests / 17 fixtures newly executed, PASS** | 0.390 s; unchanged v0.1 compatibility and strict synthetic contract checks. |
+| Experimental AIR wire fixtures | **7 tests / 56 fixtures newly executed, PASS** | 0.364 s; unchanged v0.2 schema/profile conformance. |
+| Unchanged Android JVM/build check | **Gradle UP-TO-DATE; prior 156 PASS / 19 suites retained** | 13.179 s; all 45 Gradle tasks were UP-TO-DATE. No JVM tests or APK compilation newly executed in this run. Existing JUnit records have zero failures, errors or skips; `assembleDebug` is an unchanged-artifact/build check. |
+
+Android source/resources were unchanged by this Python/display stabilization update. Its earlier
+executed 156-test result remains recorded in the historical baseline above; the current cached
+Gradle result is not relabeled as 156 new test executions. Python and both contract suites did run
+against the new code. Actual camera-dot improvement, visual comfort, response delay and typing accuracy
+remain **NOT_RUN**. Headless overlay/Tk tests do not establish actual rendering or sensor accuracy.
 
 No actual camera, emulator, GUI or OS input is launched by the automated harness. Historical Windows
 Host/mTLS results remain separate; their previous failures are not converted to passes by AIR tests.

@@ -160,6 +160,8 @@ def landmark_frames(
         except Exception as exc:
             raise ModelError("Could not initialize MediaPipe Hand Landmarker") from exc
         with detector_context as detector:
+            from .camera_overlay import CameraOverlayStabilizer
+            overlay = CameraOverlayStabilizer(max_hands)
             last_ms = -1
             frame_count = 0
             legacy_side: str | None = None
@@ -218,15 +220,16 @@ def landmark_frames(
                         confidence = 1.0 if points is not None else 0.0
                     if preview or frame_callback is not None:
                         height, width = frame.shape[:2]
-                        for observation in observed:
+                        for observation in overlay.update(observed, now):
                             color = (80, 220, 120) if observation.handedness == "left" else (255, 180, 80)
-                            for x, y, _ in observation.landmarks:
+                            for x, y in observation.points:
                                 cv2.circle(frame, (int(x * width), int(y * height)), 2, color, -1)
                             for index in (4, 8, 12, 16, 20):
-                                x, y, _ = observation.landmarks[index]
+                                x, y = observation.points[index]
                                 cv2.circle(frame, (int(x * width), int(y * height)), 7, color, 2)
                     sample = CameraSample(now, points, confidence, hands=tuple(observed))
                 else:
+                    overlay.update((), now)
                     sample = CameraSample(now, None)
                 if frame_callback is not None:
                     frame_callback(frame)

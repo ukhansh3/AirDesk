@@ -74,7 +74,7 @@ class DesktopApp:
         self.model_button.pack(side="right")
         self.keyboard_button = ttk.Button(controls, text="큰 키보드 창", command=self.open_keyboard_window)
         self.keyboard_button.pack(side="right", padx=8)
-        ttk.Label(body, text="다른 캠이 나오면 중지 → 번호 변경 → 다시 시작하세요. 보통 0 또는 1입니다.").pack(anchor="w", pady=(9, 4))
+        ttk.Label(body, text="관절 표시: 떨림 안정화 · 작은 흔들림 억제 · 캠 변경은 중지 → 번호 변경 → 시작").pack(anchor="w", pady=(9, 4))
         try:
             read_app_token(project)
             token_status = "앱 연결 설정: 기존 토큰 자동 불러옴"
