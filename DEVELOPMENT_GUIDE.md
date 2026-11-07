@@ -1,3 +1,5 @@
+> **2026-11-07 scope update:** AirDesk's active development target is **app-owned PLEOS gesture UI and virtual keyboard**, not Windows remote control. See [ADR-004](docs/decisions/ADR-004-INPUT-FIRST.md) and [revised Phase 2 handoff](docs/testing/PHASE2_REVISED_HANDOFF.md). Existing Windows Host instructions are historical/optional; they are not required for in-app controls. The revised Phase 2 is not yet implemented.
+
 # AirDesk Development Guide v0.1
 
 ## Scope
