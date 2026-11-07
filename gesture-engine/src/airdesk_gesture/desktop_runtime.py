@@ -8,7 +8,7 @@ import threading
 from pathlib import Path
 from typing import Callable, Iterator
 
-from .camera import CameraSample, landmark_frames
+from .camera import CameraSample, landmark_frames, supports_air_handedness
 
 
 class SetupError(ValueError):
@@ -140,15 +140,20 @@ class DesktopRuntime:
         error = None
         detected = None
         try:
-            frames = landmark_frames(str(model), device, frame_callback=self._preview, stop_event=self._stop)
+            import mediapipe as mp
+            air_supported = supports_air_handedness(getattr(mp, "__version__", None))
+            if not air_supported:
+                self.notify("server", "양손 타건은 MediaPipe Tasks 0.10.5 이상이 필요합니다. 현재는 Phase 1만 사용 가능합니다.")
+            frames = landmark_frames(str(model), device, frame_callback=self._preview, stop_event=self._stop,
+                                     max_hands=2 if air_supported else 1)
             try:
                 for sample in frames:
                     if self._stop.is_set():
                         break
                     self._samples.publish(sample)
-                    tracking = sample.landmarks is not None
+                    tracking = len(sample.hands) if sample.hands else int(sample.landmarks is not None)
                     if tracking != detected:
-                        self.notify("tracking", "손 인식됨 · 검지/엄지 관절 표시 중" if tracking else "손을 카메라 앞에 보여 주세요")
+                        self.notify("tracking", f"손 {tracking}개 인식 · 앱에서 입력 모드 선택" if tracking else "양손을 카메라 앞에 보여 주세요")
                         detected = tracking
                     if sample.loss_reason != "hand_not_detected":
                         self.notify("error", "카메라 영상 수신이 중단됐습니다. 다른 앱의 카메라 점유 상태를 확인해 주세요.")

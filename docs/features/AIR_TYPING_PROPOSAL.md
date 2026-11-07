@@ -1,7 +1,9 @@
 # Ten-finger midair keyboard and side mouse — proposal
 
-Status: **USER REQUIREMENT CONFIRMED; CLASSIFIER/PROFILE DESIGN AWAITING APPROVAL; NOT IMPLEMENTED**.
-Date: 2026-11-07. This is not an accepted protocol or a hardware success report.
+Status: **SUPERSEDED BY APPROVED IMPLEMENTATION SPEC**.
+Date: 2026-11-07. The user explicitly requested implementation after reviewing this proposal.
+See [AIR_TYPING_SPEC.md](AIR_TYPING_SPEC.md) and [AIR_TYPING_HANDOFF.md](../testing/AIR_TYPING_HANDOFF.md)
+for the current design/code/test status. The proposal below is historical, not a hardware success report.
 
 ## Confirmed interaction
 
@@ -54,5 +56,5 @@ changes. Actual webcam tests must measure per-finger false/missed presses, simul
 typing accuracy, latency, camera placement and fatigue. Ring/pinky coupling, thumb motion, occlusion
 and weak monocular depth may prevent comfortable typing. Synthetic tests cannot establish reliability.
 
-The user has been asked to approve calibrated flex/release typing, side-mouse neutral transitions
-and a separate experimental protocol version before dependent implementation begins.
+The user approved proceeding with calibrated flex/release typing, side-mouse neutral transitions
+and a separate experimental protocol version. Actual webcam accuracy remains unverified.

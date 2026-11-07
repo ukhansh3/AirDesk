@@ -1,6 +1,7 @@
 package com.pleos.airdesk
 
 import org.json.JSONObject
+import org.json.JSONArray
 
 /** Evaluates the keyword subset used by the two bundled diagnostic schemas.
  * Unsupported assertion keywords fail closed so schema changes require review. */
@@ -10,7 +11,7 @@ class DiagnosticSchema(private val schemas: List<JSONObject>) {
     private fun matches(schema: JSONObject, value: Any?): Boolean {
         val supported = setOf("\u0024schema", "title", "description", "type", "const", "enum",
             "properties", "required", "additionalProperties", "oneOf", "minimum", "maximum",
-            "minLength", "maxLength", "pattern")
+            "minLength", "maxLength", "pattern", "items", "minItems", "maxItems")
         if (schema.keys().asSequence().any { it !in supported }) return false
         if (schema.has("const") && schema.get("const") != value) return false
         schema.optJSONArray("enum")?.let { values ->
@@ -21,6 +22,8 @@ class DiagnosticSchema(private val schemas: List<JSONObject>) {
             "string" -> if (value !is String) return false
             "integer" -> if (value !is Number || !value.toDouble().isFinite() || value.toDouble() % 1.0 != 0.0) return false
             "number" -> if (value !is Number || !value.toDouble().isFinite()) return false
+            "boolean" -> if (value !is Boolean) return false
+            "array" -> if (value !is JSONArray) return false
             "" -> Unit
             else -> return false
         }
@@ -32,6 +35,11 @@ class DiagnosticSchema(private val schemas: List<JSONObject>) {
         if (value is String) {
             if (value.length < schema.optInt("minLength", 0) || value.length > schema.optInt("maxLength", Int.MAX_VALUE)) return false
             if (schema.has("pattern") && !Regex(schema.getString("pattern")).containsMatchIn(value)) return false
+        }
+        if (value is JSONArray) {
+            if (value.length() < schema.optInt("minItems", 0) || value.length() > schema.optInt("maxItems", Int.MAX_VALUE)) return false
+            val item = schema.optJSONObject("items") ?: return false
+            if ((0 until value.length()).any { !matches(item, value.get(it)) }) return false
         }
         if (value is JSONObject) {
             val properties = schema.optJSONObject("properties") ?: JSONObject()

@@ -56,7 +56,7 @@ class DesktopApp:
         body = ttk.Frame(root, padding=22)
         body.pack(fill="both", expand=True)
         ttk.Label(body, text="AirDesk", font=("Segoe UI", 27, "bold"), foreground="#c7bcff").pack(anchor="w")
-        ttk.Label(body, text="PC에서 카메라를 선택하고 영상을 보세요. Android 앱에서는 ‘진단 연결’을 누르세요.").pack(anchor="w", pady=(3, 15))
+        ttk.Label(body, text="PC에서 카메라를 시작하세요. 앱의 ‘양손 열손가락 → 연결’에서 허공 타이핑을 보정합니다.").pack(anchor="w", pady=(3, 15))
         controls = ttk.Frame(body)
         controls.pack(fill="x")
         ttk.Label(controls, text="카메라 번호").pack(side="left", padx=(0, 9))
@@ -134,9 +134,9 @@ class DesktopApp:
                 self.status.set(text)
             elif kind == "server":
                 self.connection.set({
-                    "listening": "연결 준비 완료 · Android 앱의 ‘진단 연결’을 누르세요.",
+                    "listening": "연결 준비 완료 · 앱의 ‘양손 열손가락 → 연결’ 또는 Phase 1 진단 연결",
                     "connected": "Android 앱 연결됨 · 좌표/제스처 전송 중",
-                    "disconnected": "앱 연결 종료 · 다시 ‘진단 연결’을 누르세요.",
+                    "disconnected": "앱 연결 종료 · 앱에서 다시 연결하세요. 허공 타이핑은 재보정이 필요합니다.",
                     "rejected": "앱 토큰 불일치 · Android Studio에서 앱을 다시 빌드·실행해 주세요.",
                 }.get(text, text))
         try:

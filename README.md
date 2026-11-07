@@ -8,12 +8,19 @@
 
 1. Start the existing PC camera panel with `Run-AirDesk.cmd` and select your camera/model.
 2. Open `android-client/` in Android Studio and run the debug `app` on your emulator.
-3. In the default **데스크톱 DEMO** screen, select **카메라 연결**, then explicitly **손동작 켜기** after connection.
-4. Pinch/release clicks registered targets; click confirmation waits for the next valid hand frame.
-   Use **우클릭 1회** for the next local context menu, **스크롤 모드** for pinch-drag scrolling,
-   and drag the work card into its drop area. Touch works through the same app actions.
-5. Select an editor and use the full PC keyboard. F1 opens help; F2–F12 are visibly disabled.
-   Narrow/short layouts have registered keyboard pan controls. Ctrl+A/C/V/X/Z are editor-local.
+3. Default **양손 열손가락** is the experimental AIR profile. Select **연결 → 보정** and follow the
+   neutral/ten-finger prompts with **자세 확인** (1.5-second delay, then hold the indicated pose).
+4. Select **메모 입력 → 타건 켜기**, show a neutral pose to rearm, then flex/release individual fingers.
+   Ten fingertip markers and held-key feedback use the complete keyboard layout. Move the right hand
+   into its side mouse area and rearm for index/Pinch mouse controls. All text stays in app-owned editors.
+5. **검지·Pinch** preserves the earlier camera connection/enable, click, context, drag and scroll profile.
+   The complete PC keyboard and side mouse controls fit one view, scaled on small screens. F1 opens
+   help; F2–F12 are visibly disabled. Ctrl+A/C/V/X/Z remain editor-local.
+
+AIR typing uses calibrated motion inference, not physical contact. Usable webcam typing accuracy,
+camera placement and latency are **NOT_VERIFIED**. Read [AIR setup/tests](docs/testing/AIR_TYPING_HANDOFF.md)
+and the [approved experimental spec](docs/features/AIR_TYPING_SPEC.md). Reconnect requires recalibration
+and explicit input enable. No Windows Host is required; official vehicle Work input remains blocked.
 
 No Windows Host, pairing or mTLS setup is required for this local DEMO. Text is not sent to the PC.
 Run `scripts/verify-input-first.ps1` for its automatic checks; the separate historical host harness

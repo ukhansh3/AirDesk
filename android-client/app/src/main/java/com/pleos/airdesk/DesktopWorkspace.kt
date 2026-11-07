@@ -59,6 +59,7 @@ private val DeskSurface = Color(0xFF14263D)
 private val DeskBorder = Color(0xFF385477)
 private val DeskAccent = Color(0xFFC7BCFF)
 private class MeasuredDesktopTarget { var bounds: UiBounds? = null }
+private class AirSuspendHook { var cancel: () -> Unit = {} }
 
 private class AndroidDesktopClipboard(context: Context) : DesktopClipboard {
     private val service = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -121,7 +122,8 @@ private fun DeskButton(label: String, modifier: Modifier, selected: Boolean = fa
 @OptIn(ExperimentalLayoutApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun DesktopWorkspace(
-    diagnostic: DiagnosticWebSocketClient, diagnosticState: DiagnosticUiState, foreground: Boolean,
+    diagnostic: DiagnosticWebSocketClient, diagnosticState: DiagnosticUiState,
+    air: AirTypingClient, airState: AirTransportState, foreground: Boolean,
     registerSuspend: ((() -> Unit)?) -> Unit,
 ) {
     val context = LocalContext.current
@@ -139,6 +141,9 @@ fun DesktopWorkspace(
     var contextEditor by remember { mutableStateOf<String?>(null) }
     var viewport by remember { mutableStateOf(UiBounds(0f, 0f, 0f, 0f)) }
     var gestureUi by remember { mutableStateOf(UiGestureSnapshot()) }
+    var airMode by remember { mutableStateOf(true) }
+    val latestAirMode by rememberUpdatedState(airMode)
+    val airHook = remember { AirSuspendHook() }
     val editorIds = remember { listOf("document", "note") }
     val focusRequests = remember { editorIds.associateWith { FocusRequester() } }
     lateinit var keyboard: DesktopKeyboardController
@@ -150,19 +155,30 @@ fun DesktopWorkspace(
                 activeEditorId = next; keyboard.focusEditor(next); keyboard.show(); focusRequestNumber++
             },
             onEscape = { contextEditor = null; keyboard.hide(); focusManager.clearFocus() },
-            onHelp = { showHelp = true })
+            onHelp = { if (latestAirMode) airHook.cancel(); showHelp = true })
     }
+    val airController = remember { AirTypingController(keyboard) }
+    val airMouse = remember { AirMouseBridge() }
     val router = remember {
         var instance: GestureUiRouter? = null
         GestureUiRouter(onChanged = { instance?.let { gestureUi = it.snapshot } },
             onCancelled = { reason ->
-                if (reason != "touch") { keyboard.resetTransient(clearFocus = false); contextEditor = null }
+                if (reason != "touch") {
+                    if (!latestAirMode) keyboard.resetTransient(clearFocus = false)
+                    contextEditor = null
+                }
             }).also { instance = it }
     }
     val actualSafety = UnavailableVehicleSafetyGateway().current
     val demoAllowed = BuildConfig.DEBUG && foreground &&
         actualSafety in setOf(VehicleSafety.UNKNOWN, VehicleSafety.PARKED_CONFIRMED)
+    val airAllowed = demoAllowed && airMode && !showHelp && contextEditor == null
+    val latestAirAllowed by rememberUpdatedState(airAllowed)
+    airHook.cancel = { airController.cancel("화면 동작 전환"); router.setDemoEnabled(false); airMouse.reset() }
+    SideEffect { airController.setAllowed(airAllowed) }
     val suspendInput: () -> Unit = {
+        airController.setAllowed(false); airController.cancel("화면 중지"); airMouse.reset()
+        air.command("disarm"); air.disconnect()
         router.setDemoEnabled(false); router.setForeground(false)
         keyboard.resetTransient(clearFocus = true); contextEditor = null; showHelp = false
         focusManager.clearFocus(); systemKeyboard?.hide()
@@ -176,6 +192,7 @@ fun DesktopWorkspace(
             override fun hide() { contextEditor = null }
             override fun showMenu(rect: Rect, onCopyRequested: (() -> Unit)?, onPasteRequested: (() -> Unit)?,
                 onCutRequested: (() -> Unit)?, onSelectAllRequested: (() -> Unit)?) {
+                if (latestAirMode) airHook.cancel()
                 router.cancel("touch")
                 contextEditor = keyboard.focusedEditorId
             }
@@ -190,7 +207,7 @@ fun DesktopWorkspace(
         keyboard.registerEditor("note", TextFieldValue(""))
         val stopObserving = diagnostic.observeGestures { signal ->
             when (signal) {
-                is DiagnosticGestureSignal.Hint -> router.accept(signal.value, SystemClock.elapsedRealtime())
+                is DiagnosticGestureSignal.Hint -> if (!latestAirMode) router.accept(signal.value, SystemClock.elapsedRealtime())
                 is DiagnosticGestureSignal.Cancel -> {
                     if (signal.reason.startsWith("diagnostic_")) router.setDemoEnabled(false)
                     router.cancel(signal.reason)
@@ -201,11 +218,30 @@ fun DesktopWorkspace(
         systemKeyboard?.hide()
         onDispose { latestSuspend(); stopObserving(); registerSuspend(null) }
     }
+    DisposableEffect(air, airController, router) {
+        val stopAir = air.observe { signal ->
+            when (signal) {
+                is AirSignal.Frame -> if (latestAirMode) {
+                    val now = SystemClock.elapsedRealtime()
+                    airController.setAllowed(latestAirAllowed)
+                    airController.accept(signal.value, now)
+                    val enabled = latestAirAllowed && airController.snapshot.enabled && signal.value.armed
+                    router.setDemoEnabled(enabled && signal.value.mouse.active && signal.value.mouse.valid)
+                    airMouse.accept(signal.value, enabled, now).forEach { router.accept(it, now) }
+                }
+                is AirSignal.Cancel -> {
+                    airController.cancel(signal.reason); keyboard.resetTransient(clearFocus = false)
+                    airMouse.reset(); router.setDemoEnabled(false)
+                }
+            }
+        }
+        onDispose { stopAir(); airController.cancel("화면 종료") }
+    }
     LaunchedEffect(foreground, actualSafety) {
         router.setForeground(foreground); router.setVehicleSafety(actualSafety)
         if (!foreground) latestSuspend()
     }
-    LaunchedEffect(router) { while (true) { delay(100); router.tick(SystemClock.elapsedRealtime()) } }
+    LaunchedEffect(router) { while (true) { delay(50); val now = SystemClock.elapsedRealtime(); router.tick(now); airController.tick(now) } }
 
     fun focus(id: String) {
         activeEditorId = id; keyboard.focusEditor(id); keyboard.show(); focusRequestNumber++; systemKeyboard?.hide()
@@ -214,7 +250,7 @@ fun DesktopWorkspace(
     LaunchedEffect(focusRequestNumber) {
         if (focusRequestNumber > 0 && foreground) focusRequests.getValue(activeEditorId).requestFocus()
     }
-    fun openContext(id: String) { focus(id); contextEditor = id }
+    fun openContext(id: String) { if (airMode) airHook.cancel(); focus(id); contextEditor = id }
     fun shortcut(code: String) {
         when (code) {
             "KeyA" -> keyboard.selectAll()
@@ -234,6 +270,26 @@ fun DesktopWorkspace(
         val plan = DesktopWorkspaceLayout.calculate(maxWidth.value, maxHeight.value,
             chromeDp, keyboard.visible, density.fontScale)
         val tools: @Composable () -> Unit = {
+          if (airMode) {
+            DeskButton("연결", Modifier.desktopTarget(router, "air.connect", demoAllowed, modeControl = true,
+                onClick = { airHook.cancel(); keyboard.resetTransient(clearFocus = false); diagnostic.disconnect(); air.connect() }))
+            DeskButton("보정", Modifier.desktopTarget(router, "air.calibrate", demoAllowed && airState.authorized, modeControl = true,
+                onClick = { airHook.cancel(); air.command("start_calibration") }), enabled = airState.authorized)
+            val capturing = airState.frame?.status in setOf("COUNTDOWN", "CAPTURING")
+            DeskButton("자세 확인", Modifier.desktopTarget(router, "air.capture", demoAllowed && airState.authorized && !capturing && airState.frame?.stage != "READY",
+                modeControl = true, onClick = { airHook.cancel(); air.command("capture") }), enabled = airState.authorized && !capturing)
+            val calibrated = airState.frame?.stage == "READY"
+            DeskButton(if (airController.snapshot.enabled) "타건 끄기" else "타건 켜기",
+                Modifier.desktopTarget(router, "air.enable", demoAllowed && calibrated && airState.authorized, modeControl = true,
+                    onClick = {
+                        if (airController.snapshot.enabled) { airHook.cancel(); air.command("disarm") }
+                        else {
+                            keyboard.resetTransient(clearFocus = false)
+                            if (keyboard.focusedEditorId == null) focus(activeEditorId)
+                            keyboard.show(); airController.setAllowed(airAllowed); airController.setEnabled(true); air.command("arm")
+                        }
+                    }), selected = airController.snapshot.enabled, enabled = calibrated && airState.authorized)
+          } else {
             DeskButton(if (gestureUi.enabled) "손동작 ON" else "손동작 켜기",
                 Modifier.desktopTarget(router, "toolbar.gestures", demoAllowed && diagnosticState.authorized, modeControl = true,
                     hovered = gestureUi.hoveredId, onClick = { router.setDemoEnabled(!gestureUi.enabled) }), gestureUi.enabled,
@@ -254,11 +310,21 @@ fun DesktopWorkspace(
                     hovered = gestureUi.hoveredId, onClick = {
                         if (keyboard.visible) { keyboard.hide(); focusManager.clearFocus() } else keyboard.show()
                     }))
+          }
         }
         Column(Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Column(Modifier.fillMaxWidth().onGloballyPositioned { chromeHeightPx = it.size.height },
                 verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("AirDesk DESK · DEMO", color = DeskAccent, fontSize = 20.sp, maxLines = 1)
+                Text("AirDesk DESK · ${if (airMode) "AIR 실험" else "Pinch"} DEMO", color = DeskAccent, fontSize = 20.sp, maxLines = 1)
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    for ((useAir, label) in listOf(true to "양손 열손가락", false to "검지·Pinch")) {
+                        DeskButton(label, Modifier.desktopTarget(router, "profile.$useAir", demoAllowed, modeControl = true,
+                            onClick = {
+                                airHook.cancel(); keyboard.resetTransient(clearFocus = false)
+                                air.disconnect(); diagnostic.disconnect(); airMode = useAir
+                            }), selected = airMode == useAir)
+                    }
+                }
                 if (plan.compactControls) {
                     Row(Modifier.fillMaxWidth().horizontalScroll(toolbarScroll),
                         horizontalArrangement = Arrangement.spacedBy(7.dp)) { tools() }
@@ -266,7 +332,8 @@ fun DesktopWorkspace(
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp),
                         verticalArrangement = Arrangement.spacedBy(5.dp)) { tools() }
                 }
-                Text("${diagnosticState.status} · ${gestureUi.status}", color = Color(0xFFAFC3DF), fontSize = 12.sp, maxLines = 1)
+                Text(if (airMode) airInstruction(airState) else "${diagnosticState.status} · ${gestureUi.status}",
+                    color = Color(0xFFAFC3DF), fontSize = 12.sp, maxLines = 2)
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
                     for ((id, label) in listOf("note" to "메모 입력", "document" to "작업 문서")) {
                         DeskButton(label, Modifier.desktopTarget(router, "editor.select.$id", demoAllowed,
@@ -301,8 +368,11 @@ fun DesktopWorkspace(
                 if (keyboard.visible) DesktopKeyboardDock(keyboard,
                     modifier = Modifier.fillMaxWidth().height(plan.keyboardHeightDp.dp),
                     targetModifier = { modifier, id, enabled, action -> modifier.desktopTarget(router, id,
-                        enabled && demoAllowed, layer = 10, hovered = gestureUi.hoveredId, onClick = action) },
+                        enabled && demoAllowed && !(airMode && airController.snapshot.enabled), layer = 10,
+                        hovered = gestureUi.hoveredId, onClick = { if (airMode) airHook.cancel(); action() }) },
                     hoveredTargetId = gestureUi.hoveredId,
+                    fingers = if (airMode) airState.frame?.fingers.orEmpty() else emptyList(),
+                    pressedKeys = if (airMode) airController.snapshot.pressedKeyCodes else emptySet(),
                     mousePanel = { panel ->
                         Column(panel.background(DeskSurface, RoundedCornerShape(8.dp)).padding(8.dp),
                             verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -312,11 +382,12 @@ fun DesktopWorkspace(
                                     demoAllowed, layer = 10, modeControl = true, hovered = gestureUi.hoveredId,
                                     onClick = { router.setMode(mode) }), selected = gestureUi.mode == mode)
                             }
-                            Text("현재: 검지 커서·Pinch\n열손가락 허공 타건: 준비 중", color = Color(0xFFAFC3DF), fontSize = 12.sp)
+                            Text(if (airMode) "오른손을 이 영역으로\n펴서 준비 → 검지 이동\nPinch 클릭 / 유지·이동 드래그\n돌아오면 다시 펴서 준비"
+                                else "검지 커서·Pinch", color = Color(0xFFAFC3DF), fontSize = 12.sp)
                         }
                     })
             }
-            Text(if (demoAllowed) "앱 내부 DEMO · 차량 UNKNOWN / 운영 잠금 · 허공 열손가락 타건 미구현"
+            Text(if (demoAllowed) "앱 내부 실험 DEMO · 차량 UNKNOWN / 운영 잠금 · 실제 타건 정확도 미검증"
                 else "입력 잠금 · DEBUG 빌드와 전경 화면에서만 DEMO를 사용할 수 있습니다",
                 modifier = Modifier.fillMaxWidth().onGloballyPositioned { footerHeightPx = it.size.height },
                 color = Color(0xFF8EA9CA), fontSize = 11.sp, maxLines = 2)
@@ -349,6 +420,25 @@ fun DesktopWorkspace(
             }
         }
         DesktopCursor(gestureUi, viewport)
+    }
+}
+
+private fun airInstruction(state: AirTransportState): String {
+    val frame = state.frame ?: return state.status
+    val pose = if (frame.stage == "NEUTRAL") "양손을 편한 허공 타이핑 자세로" else {
+        val hand = if (frame.stage.startsWith("LEFT")) "왼손" else "오른손"
+        val finger = when (frame.stage.substringAfter('_')) {
+            "THUMB" -> "엄지"; "INDEX" -> "검지"; "MIDDLE" -> "중지"; "RING" -> "약지"; else -> "새끼손가락"
+        }
+        "$hand $finger 하나만 굽히세요"
+    }
+    return when (frame.status) {
+        "COUNTDOWN" -> "1.5초 뒤 수집 · $pose · 양손을 카메라에 유지"
+        "CAPTURING" -> "자세 기록 중 · 움직이지 마세요"
+        "FAILED" -> "보정 구분 실패 · $pose · 자세 확인으로 재시도"
+        "ARMED" -> "실험 타건 ON · 양손을 펴서 준비 후 손가락 굽힘/펴기 · 손끝 색: 왼쪽 파랑/오른쪽 분홍"
+        "READY" -> "보정 완료 · 메모 입력 선택 → 타건 켜기"
+        else -> "$pose · 자세 확인을 누른 뒤 양손 유지"
     }
 }
 

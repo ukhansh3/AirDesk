@@ -76,6 +76,12 @@ async def serve(
         await asyncio.wait_for(ws.send(json.dumps(event, allow_nan=False)), timeout=0.75)
 
     async def handler(ws):
+        if getattr(getattr(ws, "request", None), "path", "") == "/air":
+            from .air_server import handle_air
+            await handle_air(ws, source=source, model=model, device=device, mirror=mirror,
+                             preview=preview, token=token, frame_factory=frame_factory,
+                             camera_lock=camera_lock, on_status=on_status)
+            return
         source_session = f"{source}-demo-{uuid4().hex}"
         owns_camera = False
         accepted = False

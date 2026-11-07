@@ -56,6 +56,8 @@ fun DesktopKeyboardDock(
     targetModifier: (Modifier, String, Boolean, () -> Unit) -> Modifier,
     hoveredTargetId: String? = null,
     mousePanel: @Composable (Modifier) -> Unit = { InactiveMousePanel(it) },
+    fingers: List<AirFinger> = emptyList(),
+    pressedKeys: Set<String> = emptySet(),
 ) {
     if (!controller.visible) return
     BoxWithConstraints(modifier.fillMaxWidth().background(Color(0xFF12223B), RoundedCornerShape(12.dp))) {
@@ -76,10 +78,20 @@ fun DesktopKeyboardDock(
                             KeyCap(placement.key,
                                 Modifier.offset(placement.bounds.left.dp, placement.bounds.top.dp)
                                     .size(placement.bounds.width.dp, placement.bounds.height.dp),
-                                controller, targetModifier, hoveredTargetId)
+                                controller, targetModifier, hoveredTargetId, placement.key.code in pressedKeys)
                         }
                         val mouse = DesktopKeyboardGeometry.mouseBounds
                         mousePanel(Modifier.offset(mouse.left.dp, mouse.top.dp).size(mouse.width.dp, mouse.height.dp))
+                        for (finger in fingers.filter { it.valid }) {
+                            val x = (finger.x * DesktopKeyboardGeometry.WIDTH).coerceIn(8f, DesktopKeyboardGeometry.WIDTH - 8f)
+                            val y = (finger.y * DesktopKeyboardGeometry.HEIGHT).coerceIn(8f, DesktopKeyboardGeometry.HEIGHT - 8f)
+                            Box(Modifier.offset((x - 7f).dp, (y - 7f).dp).size(14.dp)
+                                .background(if (finger.pressed) Color(0xFFFFBA66) else if (finger.hand == "left")
+                                    Color(0xFF76DDFF) else Color(0xFFFF93CA), RoundedCornerShape(7.dp)),
+                                contentAlignment = Alignment.Center) {
+                                Text(finger.finger.first().uppercase(), color = Color(0xFF102039), fontSize = 8.sp, lineHeight = 8.sp)
+                            }
+                        }
                     }
                 }
             }
@@ -105,13 +117,14 @@ private fun KeyCap(
     controller: DesktopKeyboardController,
     targetModifier: (Modifier, String, Boolean, () -> Unit) -> Modifier,
     hoveredTargetId: String?,
+    airPressed: Boolean = false,
 ) {
     val id = "keyboard.${key.code}"
     val enabled = controller.enabled(key.code)
     val latched = controller.latched(key.code)
     val hovered = hoveredTargetId == id
     val secondary = if (controller.language == DesktopLanguage.KOREAN) DesktopHangulComposer.fromKey(key.code, controller.shift)?.toString() else null
-    val bg = when { !enabled -> Color(0xFF1B2739); latched -> Color(0xFF604FA5); hovered -> Color(0xFF344C73); else -> Color(0xFF243956) }
+    val bg = when { airPressed -> Color(0xFFA56632); !enabled -> Color(0xFF1B2739); latched -> Color(0xFF604FA5); hovered -> Color(0xFF344C73); else -> Color(0xFF243956) }
     val outline = if (hovered || latched) Color(0xFFA99CEC) else Color(0xFF415977)
     val base = modifier.focusProperties { canFocus = false }
         .background(bg, RoundedCornerShape(6.dp)).border(1.dp, outline, RoundedCornerShape(6.dp))

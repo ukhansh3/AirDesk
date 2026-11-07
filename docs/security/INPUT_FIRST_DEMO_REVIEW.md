@@ -28,3 +28,16 @@ This is source/model review, not platform safety certification or an actual PLEO
   another checkout is preserved; no reset, stash, merge or file overwrite is applied there.
 
 Regression/model results and remaining device checks are recorded in PHASE2_REVISED_HANDOFF.md.
+
+## Experimental AIR extension (ADR-006)
+
+The new `/air` v0.2 profile authenticates separately with the local debug credential and schema-validates
+complete finger/mouse frames. It never transports text or pixels. Calibrated motion estimates remain
+untrusted DEMO hints, not physical contact or production authority. Explicit server arm and local enable,
+current session/epoch/sequence, source/receive freshness, foreground and overlay eligibility are required.
+Malformed/replayed wire data cancels/disarms; capture samples with old/future/repeated times close the
+profile before any fresh reenvelope. A separate 250ms local watchdog releases input on silence.
+Finger ownership, same-key reference counts and neutral rearm prevent replayed/returning held input.
+F1/context suspends AIR synchronously, including callback changes within the same atomic frame.
+Right-hand mouse loss does not reset left-hand text composition. See AIR_TYPING_HANDOFF.md for the
+actual automated evidence; no webcam typing/PLEOS/vehicle-safety certification is claimed.

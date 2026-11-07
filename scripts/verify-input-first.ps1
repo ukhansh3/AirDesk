@@ -98,8 +98,9 @@ try {
     if ($GradleUserHome) { $env:GRADLE_USER_HOME = $GradleUserHome }
     elseif (-not $env:GRADLE_USER_HOME) { $env:GRADLE_USER_HOME = Join-Path $artifactRoot "gradle-home" }
 
-    Invoke-VerificationStage -Name "Phase1 Python regression" -Executable $PythonExe -Arguments @("-m", "unittest", "discover", "-s", "tests", "-v") -WorkingDirectory (Join-Path $repoRoot "gesture-engine")
+    Invoke-VerificationStage -Name "Python regression and AIR models" -Executable $PythonExe -Arguments @("-m", "unittest", "discover", "-s", "tests", "-v") -WorkingDirectory (Join-Path $repoRoot "gesture-engine")
     Invoke-VerificationStage -Name "Canonical wire fixtures" -Executable $PythonExe -Arguments @("-m", "unittest", "discover", "-s", "integration-tests", "-p", "test_phase2_contract_harness.py", "-v") -WorkingDirectory $repoRoot
+    Invoke-VerificationStage -Name "Experimental air-typing wire fixtures" -Executable $PythonExe -Arguments @("-m", "unittest", "discover", "-s", "integration-tests", "-p", "test_air_typing_contracts.py", "-v") -WorkingDirectory $repoRoot
     if ($SkipAndroid) {
         $stages.Add([pscustomobject]@{name="Android JVM tests and assembleDebug"; status="NOT_RUN"; reason="Explicitly skipped"})
     } else {
@@ -115,10 +116,10 @@ $reportDirectory = Split-Path ([IO.Path]::GetFullPath($ReportPath)) -Parent
 New-Item -ItemType Directory -Force -Path $reportDirectory | Out-Null
 [ordered]@{
     generatedAtUtc=[DateTime]::UtcNow.ToString("o")
-    scope="ADR-004 app-owned DEMO desktop input; automated tests/build only"
+    scope="ADR-004 app-owned DEMO desktop input and experimental ten-finger AIR; automated tests/build only"
     stages=@($stages.ToArray())
     legacyWindows="Optional historical subsystem unchanged; not part of this revised harness, previous TLS failures are not relabeled"
-    manualGates=@("Real PLEOS display/touch/gesture and Korean IME NOT_RUN", "Official vehicle safety/camera NOT_VERIFIED", "Operational input remains BLOCKED when safety UNKNOWN")
+    manualGates=@("Real PLEOS display/touch/gesture and Korean IME NOT_RUN", "Actual ten-finger AIR camera typing accuracy/latency NOT_RUN", "Official vehicle safety/camera NOT_VERIFIED", "Operational input remains BLOCKED when safety UNKNOWN")
 } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $ReportPath -Encoding utf8
 $stages | Format-Table name,status,exitCode,durationSeconds -AutoSize
 Write-Host "Sanitized report: $ReportPath"

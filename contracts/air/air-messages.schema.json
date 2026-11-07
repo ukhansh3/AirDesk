@@ -1,0 +1,395 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Experimental local AIR typing profile v0.2",
+  "description": "Only negotiated on /air. No production vehicle or OS-input authority. Existing v0.1 remains unchanged.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "protocolVersion",
+        "type",
+        "sessionId",
+        "sequence",
+        "timestampMs",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "type": "string",
+          "const": "0.2"
+        },
+        "type": {
+          "type": "string",
+          "const": "auth.hello"
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "timestampMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "payload": {
+          "type": "object",
+          "required": [
+            "token"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "token": {
+              "type": "string",
+              "minLength": 24,
+              "maxLength": 512
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "protocolVersion",
+        "type",
+        "sessionId",
+        "sequence",
+        "timestampMs",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "type": "string",
+          "const": "0.2"
+        },
+        "type": {
+          "type": "string",
+          "const": "auth.accepted"
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "timestampMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "payload": {
+          "type": "object",
+          "required": [
+            "mode"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "type": "string",
+              "const": "air_typing_demo"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "protocolVersion",
+        "type",
+        "sessionId",
+        "sequence",
+        "timestampMs",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "type": "string",
+          "const": "0.2"
+        },
+        "type": {
+          "type": "string",
+          "const": "auth.rejected"
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "timestampMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "payload": {
+          "type": "object",
+          "required": [
+            "errorCode"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "errorCode": {
+              "type": "string",
+              "const": "UNAUTHENTICATED"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "protocolVersion",
+        "type",
+        "sessionId",
+        "sequence",
+        "timestampMs",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "type": "string",
+          "const": "0.2"
+        },
+        "type": {
+          "type": "string",
+          "const": "air.command"
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "timestampMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "payload": {
+          "type": "object",
+          "required": [
+            "action"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "start_calibration",
+                "capture",
+                "arm",
+                "disarm",
+                "reset"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "protocolVersion",
+        "type",
+        "sessionId",
+        "sequence",
+        "timestampMs",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "type": "string",
+          "const": "0.2"
+        },
+        "type": {
+          "type": "string",
+          "const": "air.frame"
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "timestampMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "payload": {
+          "type": "object",
+          "required": [
+            "epoch",
+            "stage",
+            "status",
+            "armed",
+            "fingers",
+            "mouse"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "epoch": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            },
+            "stage": {
+              "type": "string",
+              "enum": [
+                "NEUTRAL",
+                "LEFT_THUMB",
+                "LEFT_INDEX",
+                "LEFT_MIDDLE",
+                "LEFT_RING",
+                "LEFT_LITTLE",
+                "RIGHT_THUMB",
+                "RIGHT_INDEX",
+                "RIGHT_MIDDLE",
+                "RIGHT_RING",
+                "RIGHT_LITTLE",
+                "READY"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "WAITING",
+                "COUNTDOWN",
+                "CAPTURING",
+                "FAILED",
+                "READY",
+                "ARMED"
+              ]
+            },
+            "armed": {
+              "type": "boolean"
+            },
+            "fingers": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 10,
+              "items": {
+                "type": "object",
+                "required": [
+                  "hand",
+                  "finger",
+                  "x",
+                  "y",
+                  "pressed",
+                  "valid"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "hand": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "right"
+                    ]
+                  },
+                  "finger": {
+                    "type": "string",
+                    "enum": [
+                      "thumb",
+                      "index",
+                      "middle",
+                      "ring",
+                      "little"
+                    ]
+                  },
+                  "x": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "y": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "pressed": {
+                    "type": "boolean"
+                  },
+                  "valid": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "mouse": {
+              "type": "object",
+              "required": [
+                "active",
+                "valid",
+                "x",
+                "y",
+                "pressed",
+                "dragging"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "active": {
+                  "type": "boolean"
+                },
+                "valid": {
+                  "type": "boolean"
+                },
+                "x": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "y": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "pressed": {
+                  "type": "boolean"
+                },
+                "dragging": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

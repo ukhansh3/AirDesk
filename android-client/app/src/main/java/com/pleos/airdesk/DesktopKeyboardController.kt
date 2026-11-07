@@ -116,6 +116,22 @@ class DesktopKeyboardController(
         else -> false
     }
 
+    /** A validated AIR Down uses physically held modifiers for this action only.
+     * Touch/Pinch latches stay separate; AIR loss cannot leave a modifier latched. */
+    fun pressAir(code: String, heldShift: Boolean = false, heldCtrl: Boolean = false, heldAlt: Boolean = false) {
+        if (code in setOf("ShiftLeft", "ShiftRight", "ControlLeft", "ControlRight", "AltLeft", "AltRight")) return
+        val previousShift = shift; val previousCtrl = ctrl; val previousAlt = alt
+        val previousFocus = focusedEditorId
+        shift = heldShift; ctrl = heldCtrl; alt = heldAlt
+        try { press(code) }
+        finally {
+            // Focus-changing actions intentionally release all transient state.
+            if (focusedEditorId == previousFocus && visible) {
+                shift = previousShift; ctrl = previousCtrl; alt = previousAlt
+            } else { shift = false; ctrl = false; alt = false }
+        }
+    }
+
     fun press(code: String) {
         if (!visible || !enabled(code)) { status = "지원하지 않거나 선택된 편집기가 없는 키입니다"; return }
         when (code) {

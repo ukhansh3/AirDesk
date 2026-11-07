@@ -1,7 +1,7 @@
-> **Current focus:** This protocol's gesture events are diagnostic hints, not permission to click arbitrary Android/Windows targets. Revised Phase 2 interactions are local **app-owned Compose** actions specified in [GESTURE_UI_INTERACTION_SPEC](../features/GESTURE_UI_INTERACTION_SPEC.md); a virtual keyboard is specified in [VIRTUAL_KEYBOARD_SPEC](../features/VIRTUAL_KEYBOARD_SPEC.md). Remote Host WSS and schemas remain optional legacy research (ADR-003). No protocol migration or production camera/safety authorization is approved by ADR-004.
+> **Current focus:** Gesture events are diagnostic hints for **app-owned Compose** actions. ADR-006 adds the separately reviewed experimental v0.2 `/air` profile: [AIR typing spec](../features/AIR_TYPING_SPEC.md), `contracts/air/air-messages.schema.json`. Existing v0.1 schemas/route remain unchanged; mixed versions do not negotiate implicitly. Complete AIR state, command/session/epoch/freshness checks and local arming are defined in that spec. Remote Host WSS remains optional legacy research. No production camera/safety authorization is granted.
 
 The DEBUG desktop DEMO now consumes a synchronous stream of accepted hints, independently of the
-read-only preview StateFlow. Local modes reuse pinch/drag, with no new event names. Neither auth.accepted
+read-only preview StateFlow. Local single-index modes reuse pinch/drag, with no new v0.1 event names. Neither auth.accepted
 nor the dev token authorizes operational Work: local DEMO opt-in and registered callback ownership
 are separate. Keyboard text is never added to gesture or diagnostic messages. See ADR-005 and the
 revised handoff for implementation and device-validation limits.

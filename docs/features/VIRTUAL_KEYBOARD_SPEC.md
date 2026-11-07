@@ -16,9 +16,10 @@ selection callbacks and TextFieldValue are synchronized with the approved local 
 
 Latest user clarification: the intended camera input is **both hands / all ten fingers tapping in midair**,
 in a slightly curled, forward-held posture viewed from slightly above the front. The full keyboard and
-side mouse should be visible together as feedback. This recognition mode is **NOT IMPLEMENTED**;
-the current camera mode remains one index cursor with Pinch selection. See the separate
-[AIR typing proposal](AIR_TYPING_PROPOSAL.md), which awaits approval of the new classifier/profile design.
+side mouse should be visible together as feedback. This recognition mode now has an **experimental
+calibrated implementation** under [AIR_TYPING_SPEC.md](AIR_TYPING_SPEC.md), separate from the preserved
+index/Pinch profile. Actual webcam typing accuracy is **NOT_VERIFIED**; see the
+[AIR handoff](../testing/AIR_TYPING_HANDOFF.md) for automated results and manual calibration tests.
 
 **This is NOT a mobile phone keypad or a compact chat keyboard.** The intended experience is a **desktop-PC-style full QWERTY keyboard rendered on the PLEOS Work display**, operable without a physical keyboard. The keyboard must use a recognizably desktop-like multi-row arrangement, with keys clearly labeled and usable via both touch and AirDesk's gesture cursor. Do not satisfy this requirement merely by displaying the standard phone IME.
 

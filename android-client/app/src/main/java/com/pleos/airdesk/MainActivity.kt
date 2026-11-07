@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 
 class MainActivity : ComponentActivity() {
     private val diagnostic by lazy { DiagnosticWebSocketClient(applicationContext) }
+    private val air by lazy { AirTypingClient(applicationContext) }
     private val secureInstance = lazy { SecureClient(applicationContext) }
     private val secure by secureInstance
     private var appForeground by mutableStateOf(false)
@@ -49,6 +50,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val state by diagnostic.state.collectAsState()
+            val airState by air.state.collectAsState()
             var screen by remember { mutableStateOf(0) }
             LaunchedEffect(screen, appForeground) {
                 if (screen == 2) {
@@ -67,7 +69,7 @@ class MainActivity : ComponentActivity() {
                     }
                     Box(Modifier.weight(1f)) {
                         when (screen) {
-                            0 -> DesktopWorkspace(diagnostic, state, appForeground && appWindowFocused) { suspendWorkspace = it }
+                            0 -> DesktopWorkspace(diagnostic, state, air, airState, appForeground && appWindowFocused) { suspendWorkspace = it }
                             1 -> DiagnosticScreen(state, onConnect = { diagnostic.connect(BuildConfig.DEV_TOKEN) },
                                 onDisconnect = { diagnostic.disconnect() })
                             else -> Phase2Screen(secure, state) { diagnostic.connect(BuildConfig.DEV_TOKEN) }
@@ -95,12 +97,14 @@ class MainActivity : ComponentActivity() {
         appForeground = false
         if (secureInstance.isInitialized()) secure.foreground(false)
         diagnostic.disconnect()
+        air.disconnect()
         super.onPause()
     }
 
     override fun onDestroy() {
         if (secureInstance.isInitialized()) secure.close()
         diagnostic.close()
+        air.close()
         super.onDestroy()
     }
 }

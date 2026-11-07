@@ -2,8 +2,9 @@
 
 Date: 2026-11-07
 Status: **IMPLEMENTED (code) + AUTOMATED PASS; actual PLEOS UI/gesture/IME NOT_RUN; operational vehicle input BLOCKED**.
-This status covers the existing app-local touch/single-index-Pinch DEMO only. The newly clarified
-**two-hand, ten-finger midair typing** requirement is **NOT IMPLEMENTED**; see AIR_TYPING_PROPOSAL.md.
+The table below records the touch/single-index-Pinch baseline through `db26398`, before AIR typing.
+The subsequently requested **two-hand, ten-finger midair typing** has a separate experimental
+implementation/spec. Current AIR results and manual gates are in [AIR_TYPING_HANDOFF.md](AIR_TYPING_HANDOFF.md).
 Base: `dev` `f8a3374fe109cd72e54ecb6cda364ec8dfc932b0`. This handoff records revised input-first
 work separately from the historical remote-Host Phase 2.
 
