@@ -1,3 +1,5 @@
+> **ADR-004 active product scope:** This module remains the PC-webcam MediaPipe gesture **hint** producer for an AirDesk-owned PLEOS Compose cursor. Revised Phase 2 click/drag/scroll routing belongs to Android app-owned UI, not Windows SendInput. Preserve the working Phase 1 websocket/event contracts; no vehicle camera is assumed, and do not silently add scroll event types or change schemas. Historical Windows-host remote-input integration is optional R&D, not the primary requirement.
+
 # Gesture Engine Agent
 
 Ownership: gesture-engine/** only. Read root AGENTS.md, GESTURE_SPEC.md, PROTOCOL_SPEC.md and canonical JSON schemas.
