@@ -13,15 +13,25 @@ The current touch/single-Pinch profile remains available separately.
 
 ## Guided calibration and recognition
 
-- Start calibration explicitly. It begins with both hands' neutral pose, then prompts LEFT and RIGHT
-  THUMB, INDEX, MIDDLE, RING, LITTLE in order. Capture is delayed so the user can return their hand
-  after touching the control. Gather multiple fresh, stable both-hand samples; reject unusable samples.
-- Calibrate finger-shape/flex separation relative to that hand's neutral pose. Thumb features are
-  distinct from the other fingers. No contact/pressure or metric keyboard plane is inferred.
+- Press **자동 보정 시작** once. Allow five seconds to return both hands, then hold the comfortable
+  neutral pose. Capture requires at least six stable both-hand samples spanning 500ms. The guide
+  automatically prompts LEFT and RIGHT THUMB, INDEX, MIDDLE, RING, LITTLE in order; no per-stage clicks.
+- Between poses, return to neutral for 700ms, then perform only the indicated finger stroke and hold
+  briefly. Separable/stable motion advances the stage automatically. Missing/coupled/unstable hands
+  reset the sampling window, not the completed stages; retry by returning to neutral. Idle time never
+  substitutes for a valid pose. Cancel disarms; completion does not automatically enable typing.
+- Calibrate a vector of chain folding and signed knuckle flex relative to the palm. The learned
+  neutral-to-stroke direction recognizes MCP-only depression even when finger segments remain straight;
+  whole-hand translation/rigid rotation/scale must not create a press. Thumb features remain separate.
+  Down/Up hysteresis uses 55%/25% of the calibrated motion with 60ms Down/50ms Up confirmation.
+  This estimates motion, not contact/pressure or a metric keyboard plane.
 - Map camera image x/y to the complete normalized keyboard/mouse design surface (1120x360).
   Show hovered keys before enabling typing. This is an image-space mapping, not calibrated physical depth.
 - Require explicit arm plus local DEMO enable. Each finger must rearm in neutral, then produce one
   down edge after calibrated hysteresis/duration. Bind the pre-stroke key until release. No hold-repeat.
+- Neutral rearm is independent per finger (200ms); a held pinky cannot block the same hand's index.
+  The app displays local enable/guard status, raw detected presses, accepted keys and per-finger
+  neutral/hover/down/outside/unsupported states. Server ARMED alone must not claim local typing is ON.
 - Reject ambiguous identity and crossing/unstable observations. Hand-result array order is not identity.
   Missing fingers release their ownership. Reappearance flexed does not create a new down edge.
 
@@ -50,6 +60,8 @@ does not transfer right-hand ownership. Input cancels on tracking/connection los
   version/type/session/sequence/timestamp/payload; reject duplicate JSON, unknown fields and non-finite values.
 - `air.command` actions: start_calibration, capture, arm, disarm, reset. Bind commands to the authenticated
   server session, increasing client sequence and fresh clock-relative timestamps; calibrating disarms first.
+- `start_calibration` now starts the automatic guide. Existing `capture` remains an explicit manual
+  fallback with the original 1.5-second delay; it cancels automatic progression. Wire schemas are unchanged.
 - `air.frame` is an atomic complete state: calibration epoch/stage/status/armed, at most ten unique
   hand/finger observations, plus mouse state. Omitted/invalid fingers release. Text is never transported.
 - Source sequence is global per connection. Reject replay, mixed versions/sessions and stale/regressing
@@ -58,6 +70,14 @@ does not transfer right-hand ownership. Input cancels on tracking/connection los
   A separate local stale watchdog cancels input even when network callbacks stop arriving.
 
 ## Scope and verification
+
+For development, the user chose a **PC large-keyboard reference window**. The existing PC panel exposes
+**큰 키보드 창**, which the user opens/resizes before connecting the app. It renders the same 1120x360
+key/mouse design, ten fingertips and estimated Down states from a one-latest-state in-memory callback.
+It receives no typed text, camera video or Android input authority. Its estimated highlights are not
+proof that the app accepted a key. Disconnection or a local stale watchdog clears the display. The
+Android editor remains the input/result surface and must stay foreground. No Windows keyboard/mouse
+injection is added. The actual large-window readability and emulator host-focus behavior need user tests.
 
 Only explicitly labeled DEBUG DEMO can run while the official vehicle gateway is UNKNOWN. Operational
 Work stays blocked. No vehicle camera/permission or new external library is selected. PC webcam frames

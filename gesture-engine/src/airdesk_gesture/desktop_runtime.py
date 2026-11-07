@@ -5,6 +5,7 @@ import asyncio
 import queue
 import re
 import threading
+from copy import deepcopy
 from pathlib import Path
 from typing import Callable, Iterator
 
@@ -86,6 +87,8 @@ class DesktopRuntime:
         self.project = project
         self.notify = notify
         self.frames: queue.Queue[bytes] = queue.Queue(maxsize=1)
+        self.air_frames: queue.Queue[dict | None] = queue.Queue(maxsize=1)
+        self._air_lock = threading.Lock()
         self._stop = threading.Event()
         self._samples = LatestSamples()
         self._camera_thread: threading.Thread | None = None
@@ -111,12 +114,25 @@ class DesktopRuntime:
         self._stopping = False
         self._loop = None
         self._server_task = None
+        self.publish_air_frame(None)
         while not self.frames.empty():
             self.frames.get_nowait()
         self._camera_thread = threading.Thread(target=self._camera, args=(device, model), daemon=True)
         self._server_thread = threading.Thread(target=self._server, args=(device, model, token), daemon=True)
         self._camera_thread.start()
         self._server_thread.start()
+
+    def publish_air_frame(self, payload: dict | None):
+        """One latest estimate for a user-opened local keyboard view, never video/text."""
+        if payload is not None and self._stop.is_set():
+            return
+        value = deepcopy(payload) if payload is not None else None
+        with self._air_lock:
+            try:
+                self.air_frames.get_nowait()
+            except queue.Empty:
+                pass
+            self.air_frames.put_nowait(value)
 
     def _preview(self, frame):
         import cv2
@@ -176,6 +192,7 @@ class DesktopRuntime:
             self._server_task = asyncio.create_task(serve(
                 source="camera", model=str(model), device=device, dev_token=token,
                 frame_factory=self._samples.samples, on_status=lambda status: self.notify("server", status),
+                on_air_frame=self.publish_air_frame,
             ))
             if self._stop.is_set():
                 self._server_task.cancel()
@@ -197,6 +214,7 @@ class DesktopRuntime:
     def stop(self):
         self._stopping = True
         self._stop.set()
+        self.publish_air_frame(None)
         self._samples.close()
         loop, task = self._loop, self._server_task
         if loop and task and not loop.is_closed():

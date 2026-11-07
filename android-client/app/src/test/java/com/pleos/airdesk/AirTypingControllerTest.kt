@@ -302,6 +302,95 @@ class AirTypingControllerTest {
         assertEquals("a", keyboard.value("note").text)
     }
 
+    @Test fun diagnosticsSeparateObservedPressFromNeutralPreparationAndAcceptedKeyDown() {
+        val r = Rig()
+        r.send(f("KeyA", pressed = true), f("KeyB", "right", pressed = true))
+        assertEquals(2, r.controller.snapshot.observedFingerCount)
+        assertEquals(2, r.controller.snapshot.detectedPressedCount)
+        assertFalse(r.controller.snapshot.ready)
+        assertTrue(r.controller.snapshot.rearmedOwners.isEmpty())
+        assertEquals(setOf(AirFingerState.WAIT_NEUTRAL), r.controller.snapshot.fingerStates.values.toSet())
+        assertEquals("", r.text())
+        r.send(f("KeyA"), f("KeyB", "right"))
+        assertTrue(r.controller.snapshot.ready)
+        assertEquals(setOf("left.index", "right.index"), r.controller.snapshot.rearmedOwners)
+        assertEquals(AirFingerState.HOVER, r.controller.snapshot.fingerStates["left.index"])
+        r.send(f("KeyA", pressed = true), f("KeyB", "right"))
+        assertEquals(AirFingerState.KEYDOWN, r.controller.snapshot.fingerStates["left.index"])
+        assertEquals(AirFingerState.HOVER, r.controller.snapshot.fingerStates["right.index"])
+        assertEquals(setOf("KeyA"), r.controller.snapshot.pressedKeyCodes)
+        assertEquals(1, r.controller.snapshot.detectedPressedCount)
+        assertEquals("a", r.text())
+    }
+
+    @Test fun diagnosticsReportGapAndUnsupportedDownUntilReleaseRatherThanClaimTyping() {
+        val r = Rig()
+        val gap = AirFinger("left", "index", 0f, 0f, false, true)
+        r.send(gap)
+        assertFalse(r.controller.snapshot.ready)
+        assertEquals(AirFingerState.NO_TARGET, r.controller.snapshot.fingerStates["left.index"])
+        r.send(gap.copy(pressed = true))
+        r.send(f("KeyA", pressed = true))
+        assertEquals(AirFingerState.NO_TARGET, r.controller.snapshot.fingerStates["left.index"])
+        assertFalse(r.controller.snapshot.ready)
+        assertEquals("", r.text())
+        r.send(f("F2")); r.send(f("F2", pressed = true))
+        assertEquals(AirFingerState.UNSUPPORTED, r.controller.snapshot.fingerStates["left.index"])
+        assertFalse(r.controller.snapshot.ready)
+        assertTrue(r.controller.snapshot.pressedKeyCodes.isEmpty())
+        r.send(f("KeyA")); r.send(f("KeyA", pressed = true))
+        assertEquals(AirFingerState.KEYDOWN, r.controller.snapshot.fingerStates["left.index"])
+        assertEquals("a", r.text())
+    }
+
+    @Test fun serverArmedCannotMakeLocalOffDiagnosticsClaimReady() {
+        val r = Rig()
+        r.controller.cancel("손 추적 시간 초과")
+        r.send(f("KeyA", pressed = true))
+        assertFalse(r.controller.snapshot.enabled)
+        assertFalse(r.controller.snapshot.ready)
+        assertTrue(r.controller.snapshot.status.contains("입력 꺼짐"))
+        assertEquals(AirFingerState.BLOCKED, r.controller.snapshot.fingerStates["left.index"])
+        assertEquals(1, r.controller.snapshot.observedFingerCount)
+        assertEquals(1, r.controller.snapshot.detectedPressedCount)
+        assertTrue(r.controller.snapshot.rearmedOwners.isEmpty())
+        assertEquals("", r.text())
+    }
+
+    @Test fun diagnosticsDistinguishMissingEditorAndHiddenKeyboard() {
+        val r = Rig()
+        r.keyboard.focusEditor(null)
+        r.send(f("KeyA"))
+        assertTrue(r.controller.snapshot.status.contains("편집기"))
+        assertEquals(AirFingerState.BLOCKED, r.controller.snapshot.fingerStates["left.index"])
+        r.keyboard.hide()
+        r.send(f("KeyA"))
+        assertTrue(r.controller.snapshot.status.contains("키보드를 펼치세요"))
+        assertFalse(r.controller.snapshot.ready)
+        assertEquals("", r.text())
+    }
+
+    @Test fun diagnosticMapsAreBoundedAndLostOrMouseFingerDoesNotRemainRearmed() {
+        val r = Rig()
+        val all = listOf("left", "right").flatMap { hand ->
+            listOf("thumb", "index", "middle", "ring", "little").map { finger -> f("KeyA", hand, finger) }
+        }
+        r.send(*all.toTypedArray())
+        assertEquals(10, r.controller.snapshot.observedFingerCount)
+        assertEquals(10, r.controller.snapshot.rearmedOwners.size)
+        assertEquals(10, r.controller.snapshot.fingerStates.size)
+        r.send(f("KeyA", "left", valid = false), f("KeyA", "right", valid = false),
+            mouse = noMouse.copy(active = true, valid = true))
+        assertEquals(0, r.controller.snapshot.observedFingerCount)
+        assertTrue(r.controller.snapshot.rearmedOwners.isEmpty())
+        assertEquals(AirFingerState.LOST, r.controller.snapshot.fingerStates["left.index"])
+        assertEquals(AirFingerState.MOUSE, r.controller.snapshot.fingerStates["right.index"])
+        assertEquals(2, r.controller.snapshot.fingerStates.size)
+        r.send()
+        assertTrue(r.controller.snapshot.fingerStates.isEmpty())
+        assertTrue(r.controller.snapshot.rearmedOwners.isEmpty())
+    }
+
     companion object {
         private val noMouse = AirMouse(false, false, 0f, 0f, false, false)
         private fun f(code: String, hand: String = "left", finger: String = "index", pressed: Boolean = false,

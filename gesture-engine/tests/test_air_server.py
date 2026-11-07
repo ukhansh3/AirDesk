@@ -76,6 +76,35 @@ class AirServerIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(reply["payload"], {"mode": "air_typing_demo"})
         return reply
 
+    async def test_local_preview_only_receives_authenticated_estimates_and_disconnect_clear(self):
+        updates = []
+        await self.start_server(on_air_frame=updates.append)
+        self.assertEqual(updates, [])  # Readiness rejection must not publish or clear another profile.
+        async with connect(self.url + "/air") as ws:
+            await self.authenticate(ws)
+            await self.frame_until(ws)
+            self.assertTrue(any(isinstance(item, dict) for item in updates))
+            self.assertEqual(set(updates[-1]), {"epoch", "stage", "status", "armed", "fingers", "mouse"})
+            self.assertNotIn("token", json.dumps(updates))
+            async with connect(self.url + "/air") as denied:
+                await denied.send(json.dumps(hello("synthetic-wrong-air-token-000001")))
+                self.assertEqual(json.loads(await denied.recv())["type"], "auth.rejected")
+            self.assertNotIn(None, updates)
+        for _ in range(30):
+            if updates and updates[-1] is None:
+                break
+            await asyncio.sleep(.02)
+        self.assertIsNone(updates[-1])
+
+    async def test_local_preview_exception_cannot_break_authenticated_stream(self):
+        def broken(_):
+            raise RuntimeError("synthetic display failure")
+        await self.start_server(on_air_frame=broken)
+        async with connect(self.url + "/air") as ws:
+            await self.authenticate(ws)
+            event = await self.frame_until(ws)
+            self.assertFalse(event["payload"]["armed"])
+
     async def frame_until(self, ws, predicate=lambda _: True, timeout=3):
         deadline = monotonic() + timeout
         while True:
@@ -183,6 +212,32 @@ class AirServerIntegrationTests(unittest.IsolatedAsyncioTestCase):
             reset = await self.frame_until(ws, lambda p: p["epoch"] != started["payload"]["epoch"])
             self.assertEqual(reset["payload"]["status"], "WAITING")
             self.assertFalse(reset["payload"]["armed"])
+
+    async def test_automatic_calibration_start_and_cancel_never_arm_without_samples(self):
+        async with connect(self.url + "/air") as ws:
+            accepted = await self.authenticate(ws)
+            session = accepted["sessionId"]
+            initial = await self.frame_until(ws)
+            await self.send_command(ws, session, 1, "start_calibration")
+            started = await self.frame_until(ws, lambda p: p["epoch"] != initial["payload"]["epoch"])
+            self.assertEqual(started["payload"]["stage"], "NEUTRAL")
+            self.assertEqual(started["payload"]["status"], "COUNTDOWN")
+            self.assertFalse(started["payload"]["armed"])
+            for _ in range(3):
+                waiting = await self.frame_until(ws)
+                self.assertEqual(waiting["payload"]["stage"], "NEUTRAL")
+                self.assertFalse(waiting["payload"]["armed"])
+                self.assertEqual(waiting["payload"]["fingers"], [])
+            await self.send_command(ws, session, 2, "disarm")
+            cancelled = await self.frame_until(ws, lambda p: p["status"] == "WAITING")
+            self.assertEqual(cancelled["payload"]["epoch"], started["payload"]["epoch"])
+            for _ in range(3):
+                stopped = await self.frame_until(ws)
+                self.assertEqual(stopped["payload"]["status"], "WAITING")
+                self.assertFalse(stopped["payload"]["armed"])
+            await self.send_command(ws, session, 3, "arm")
+            denied = await self.frame_until(ws, lambda p: p["status"] == "FAILED")
+            self.assertFalse(denied["payload"]["armed"])
 
     async def test_reconnect_has_new_session_epoch_and_never_restores_arm(self):
         async with connect(self.url + "/air") as ws:

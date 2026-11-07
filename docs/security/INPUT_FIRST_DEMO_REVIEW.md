@@ -41,3 +41,9 @@ Finger ownership, same-key reference counts and neutral rearm prevent replayed/r
 F1/context suspends AIR synchronously, including callback changes within the same atomic frame.
 Right-hand mouse loss does not reset left-hand text composition. See AIR_TYPING_HANDOFF.md for the
 actual automated evidence; no webcam typing/PLEOS/vehicle-safety certification is claimed.
+
+The optional PC large-keyboard window is a read-only visualization of the already validated local
+estimate payload. A bounded one-latest-state queue, disconnect clear and 500ms display watchdog prevent
+stale highlights. It receives no Android text, credentials or camera pixels and never injects input.
+Opening, closing or failing this view does not grant app input authority. Automatic calibration still
+requires valid stable poses and finishes disarmed; it does not replace explicit local typing enable.

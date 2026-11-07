@@ -21,6 +21,10 @@ class DesktopApp:
         self.was_busy = False
         self.closing_at: float | None = None
         self.last_error = ""
+        self.keyboard_view = None
+        self.last_air_payload = None
+        self.last_air_received_at = None
+        self._air_display_enabled = False
         self.settings_path = project / "gesture-engine" / ".venv" / "airdesk-panel.json"
         settings = {}
         try:
@@ -68,6 +72,8 @@ class DesktopApp:
         self.stop_button.pack(side="left")
         self.model_button = ttk.Button(controls, text="모델 파일 선택", command=self.choose_model)
         self.model_button.pack(side="right")
+        self.keyboard_button = ttk.Button(controls, text="큰 키보드 창", command=self.open_keyboard_window)
+        self.keyboard_button.pack(side="right", padx=8)
         ttk.Label(body, text="다른 캠이 나오면 중지 → 번호 변경 → 다시 시작하세요. 보통 0 또는 1입니다.").pack(anchor="w", pady=(9, 4))
         try:
             read_app_token(project)
@@ -91,6 +97,39 @@ class DesktopApp:
         if path:
             self.model.set(path)
 
+    def open_keyboard_window(self):
+        from .keyboard_preview import KeyboardPreviewWindow, STALE_SECONDS
+        if self.keyboard_view is None or not self.keyboard_view.is_open:
+            self.keyboard_view = KeyboardPreviewWindow(self.root, on_close=lambda: setattr(self, "keyboard_view", None))
+        else:
+            self.keyboard_view.show()
+        fresh = self.last_air_received_at is not None and 0 <= time.monotonic() - self.last_air_received_at <= STALE_SECONDS
+        self.keyboard_view.update(self.last_air_payload if fresh else None)
+
+    def _clear_air_preview(self):
+        self.last_air_payload = None
+        self.last_air_received_at = None
+        if self.keyboard_view is not None and self.keyboard_view.is_open:
+            self.keyboard_view.update(None)
+
+    def _poll_air_frames(self):
+        from .keyboard_preview import STALE_SECONDS
+        received = False
+        payload = None
+        while True:
+            try:
+                payload = self.runtime.air_frames.get_nowait()
+                received = True
+            except queue.Empty:
+                break
+        if received:
+            self.last_air_payload = payload if self._air_display_enabled else None
+            self.last_air_received_at = time.monotonic() if self.last_air_payload is not None else None
+            if self.keyboard_view is not None and self.keyboard_view.is_open:
+                self.keyboard_view.update(self.last_air_payload)
+        if self.last_air_received_at is not None and not 0 <= time.monotonic() - self.last_air_received_at <= STALE_SECONDS:
+            self._clear_air_preview()
+
     def start(self):
         self.last_error = ""
         try:
@@ -99,6 +138,8 @@ class DesktopApp:
         except (SetupError, ValueError) as exc:
             messagebox.showerror("AirDesk 설정 확인", str(exc))
             return
+        self._clear_air_preview()
+        self._air_display_enabled = True
         try:
             self.settings_path.write_text(json.dumps({"device": device, "model": self.model.get()}), encoding="utf-8")
         except OSError:
@@ -112,6 +153,8 @@ class DesktopApp:
         self.connection.set("앱 연결 준비 중")
 
     def stop(self):
+        self._air_display_enabled = False
+        self._clear_air_preview()
         self.runtime.stop()
         self.stop_button.configure(state="disabled")
         self.status.set("카메라와 연결을 종료하는 중입니다…")
@@ -119,6 +162,7 @@ class DesktopApp:
     def close(self):
         self.closing_at = time.monotonic()
         self.stop()
+        if self.keyboard_view is not None: self.keyboard_view.close()
 
     def poll(self):
         while True:
@@ -146,6 +190,7 @@ class DesktopApp:
         else:
             self.photo = tk.PhotoImage(data=ppm, format="PPM")
             self.preview.configure(image=self.photo, text="")
+        self._poll_air_frames()
         if self.was_busy and not self.runtime.busy:
             self.was_busy = False
             self.start_button.configure(state="normal")
@@ -157,6 +202,8 @@ class DesktopApp:
             self.status.set(self.last_error or "중지됨 · 카메라 번호와 모델 선택은 다음 실행에도 기억됩니다.")
             self.connection.set("앱 연결 안 됨")
             self.tracking.set("손 인식 대기")
+            self._air_display_enabled = False
+            self._clear_air_preview()
         if self.closing_at is not None and (not self.runtime.busy or time.monotonic() - self.closing_at > 3):
             self.root.destroy()
             return

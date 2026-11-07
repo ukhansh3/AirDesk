@@ -39,7 +39,7 @@ def fresh_camera_sample(sample, now_ms, previous_ms):
     return sample
 
 
-async def handle_air(ws, *, source, model, device, mirror, preview, token, frame_factory, camera_lock, on_status):
+async def handle_air(ws, *, source, model, device, mirror, preview, token, frame_factory, camera_lock, on_status, on_air_frame=None):
     from .air_typing import AirTypingEngine
     schema = Path(__file__).resolve().parents[3] / "contracts/air/air-messages.schema.json"
     validator = Draft202012Validator(json.loads(schema.read_text(encoding="utf-8")))
@@ -58,6 +58,10 @@ async def handle_air(ws, *, source, model, device, mirror, preview, token, frame
         validator.validate(event)
         sequence += 1
         await asyncio.wait_for(ws.send(json.dumps(event, allow_nan=False)), .75)
+        if kind == "air.frame" and on_air_frame is not None:
+            # A read-only local visualization must never become an input dependency.
+            with suppress(Exception):
+                on_air_frame(payload)
 
     try:
         hello = strict_message(await asyncio.wait_for(ws.recv(), 5), validator)
@@ -148,5 +152,8 @@ async def handle_air(ws, *, source, model, device, mirror, preview, token, frame
             camera_lock.release()
         if accepted and on_status:
             on_status("disconnected")
+        if accepted and on_air_frame is not None:
+            with suppress(Exception):
+                on_air_frame(None)
         with suppress(Exception):
             await ws.close(code=1000, reason="AIR diagnostic ended")

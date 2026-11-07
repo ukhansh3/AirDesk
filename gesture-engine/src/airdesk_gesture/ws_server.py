@@ -31,6 +31,7 @@ async def serve(
     dev_token: str | None = None,
     frame_factory: Callable[[], Iterator[CameraSample]] | None = None,
     on_status: Callable[[str], None] | None = None,
+    on_air_frame: Callable[[dict | None], None] | None = None,
 ):
     try:
         from websockets.asyncio.server import serve as ws_serve
@@ -80,7 +81,7 @@ async def serve(
             from .air_server import handle_air
             await handle_air(ws, source=source, model=model, device=device, mirror=mirror,
                              preview=preview, token=token, frame_factory=frame_factory,
-                             camera_lock=camera_lock, on_status=on_status)
+                             camera_lock=camera_lock, on_status=on_status, on_air_frame=on_air_frame)
             return
         source_session = f"{source}-demo-{uuid4().hex}"
         owns_camera = False

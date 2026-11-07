@@ -25,3 +25,14 @@ Reject invalid/duplicate wire data, old sessions/epochs and stale capture before
 Input never automatically resumes after reconnect. No camera/text recording, global Android input or
 Windows OS input. Actual camera angle, coupled finger motion, occlusion, speed, accuracy and fatigue
 require manual measurement; passing unit/loopback tests does not prove practical typing.
+
+## Automatic guide and large development view (user feedback, 2026-11-07)
+
+The user confirmed that clicking capture and returning their hands eleven times is uncomfortable and
+requested automatic calibration. One explicit start now runs a five-second preparation period followed
+by stable neutral/individual-stroke detection and automatic stage advancement. Existing command/field
+shapes remain unchanged; manual capture stays a compatibility fallback, completion stays disarmed.
+Internal motion features now include palm-relative MCP flex, fixing the chain-fold metric's invariance
+to straight-finger knuckle depression; per-finger neutral rearm fixes same-hand blocking.
+The user selected a separate, large PC keyboard window for development testing. It is a read-only
+visualization of estimates, not a Windows input surface or a mirror of accepted Android text.

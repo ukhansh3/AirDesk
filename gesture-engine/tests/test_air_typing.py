@@ -5,6 +5,7 @@ finger's Down until release without repeat, and require neutral after loss.
 Only the side pad may create mouse state; typing and mouse ownership are disjoint.
 """
 import unittest
+from math import cos, sin, dist
 
 from airdesk_gesture.air_typing import AirTypingEngine, FINGERS
 from airdesk_gesture.camera import CameraHand, CameraSample
@@ -29,6 +30,31 @@ def observed(side, bent=(), wrist_x=None, x_scale=1.):
     return CameraHand(side, tuple(p), .99)
 
 
+def mcp_tap(side, finger, angle=.65):
+    """Rigidly depress an otherwise straight finger at its MCP; palm stays fixed."""
+    hand = observed(side)
+    points = list(hand.landmarks)
+    base = {"thumb": 2, "index": 5, "middle": 9, "ring": 13, "little": 17}[finger]
+    stop = 5 if finger == "thumb" else base+4
+    origin = points[base]
+    for index in range(base+1, stop):
+        x, y, z = (points[index][i]-origin[i] for i in range(3))
+        points[index] = (origin[0]+x, origin[1]+y*cos(angle)-z*sin(angle),
+                         origin[2]+y*sin(angle)+z*cos(angle))
+    return CameraHand(side, tuple(points), .99)
+
+
+def rigid_move(hand, angle=.4):
+    """Move the whole hand, preserving all joint angles and palm-relative shape."""
+    origin = hand.landmarks[0]
+    points = []
+    for point in hand.landmarks:
+        x, y, z = (point[i]-origin[i] for i in range(3))
+        points.append((origin[0]+.01+x, origin[1]-.01+y*cos(angle)-z*sin(angle),
+                       origin[2]+y*sin(angle)+z*cos(angle)))
+    return CameraHand(hand.handedness, tuple(points), hand.score)
+
+
 class AirTypingTests(unittest.TestCase):
     def setUp(self):
         self.engine = AirTypingEngine()
@@ -40,11 +66,11 @@ class AirTypingTests(unittest.TestCase):
                               (observed("left", left), observed("right", right)))
         return self.engine.process(sample)
 
-    def capture(self, left=(), right=(), count=14):
+    def capture(self, left=(), right=(), count=14, hands=None):
         self.engine.command("capture", self.now)
-        self.frame(left, right, advance=1500)
+        self.frame(left, right, hands=hands, advance=1500)
         for _ in range(count):
-            value = self.frame(left, right)
+            value = self.frame(left, right, hands=hands)
         return value
 
     def calibrate(self):
@@ -110,6 +136,148 @@ class AirTypingTests(unittest.TestCase):
         for _ in range(4): value = self.frame(left=("index",))
         self.assertTrue(self.finger(value, "left", "index")["pressed"])
 
+    def test_held_little_finger_after_arm_does_not_block_neutral_index_rearm(self):
+        self.calibrate()
+        self.engine.command("arm", self.now)
+        for _ in range(8): self.frame(left=("little",))
+        for _ in range(4): value = self.frame(left=("little", "index"))
+        self.assertTrue(self.finger(value, "left", "index")["pressed"])
+        self.assertFalse(self.finger(value, "left", "little")["pressed"])
+
+    def test_straight_finger_mcp_downstroke_calibrates_and_presses(self):
+        # This geometric movement leaves the old MCP-to-tip chain-shortening
+        # ratio zero. It is still an intentional typing depression at the MCP.
+        straight = observed("left").landmarks
+        tapped = mcp_tap("left", "index").landmarks
+        for points in (straight, tapped):
+            self.assertAlmostEqual(dist(points[5], points[8]), sum(dist(points[i], points[i+1]) for i in (5, 6, 7)))
+        self.capture()
+        for side in ("left", "right"):
+            for name in FINGERS:
+                poses = tuple(observed(h, ("thumb",)) if h == side and name == "thumb" else
+                              mcp_tap(h, name) if h == side else observed(h) for h in ("left", "right"))
+                value = self.capture(hands=poses)
+        self.assertEqual(value["stage"], "READY")
+        self.engine.command("arm", self.now)
+        for _ in range(8): self.frame()
+        for _ in range(4): value = self.frame(hands=(mcp_tap("left", "index"), observed("right")))
+        self.assertTrue(self.finger(value, "left", "index")["pressed"])
+        for _ in range(4): value = self.frame()
+        self.assertFalse(self.finger(value, "left", "index")["pressed"])
+
+    def test_whole_hand_rigid_movement_is_not_a_typing_press(self):
+        self.arm()
+        hands = tuple(rigid_move(observed(side)) for side in ("left", "right"))
+        for _ in range(10): value = self.frame(hands=hands)
+        self.assertFalse(any(f["pressed"] for f in value["fingers"]))
+
+    def test_automatic_guided_calibration_needs_one_start_then_all_ten_valid_poses(self):
+        self.engine.command("start_calibration", self.now)
+        self.assertEqual(self.frame()["status"], "COUNTDOWN")
+        for _ in range(20): self.frame(advance=250)
+        for _ in range(16): value = self.frame()
+        self.assertEqual(value["stage"], "LEFT_THUMB")
+        for side in ("left", "right"):
+            for name in FINGERS:
+                for _ in range(20): self.frame()
+                for _ in range(16): value = self.frame(left=(name,) if side == "left" else (), right=(name,) if side == "right" else ())
+        self.assertEqual(value["stage"], "READY")
+        self.assertEqual(value["status"], "READY")
+        self.assertFalse(value["armed"])
+        self.engine.command("arm", self.now)
+        for _ in range(8): self.frame()
+        for _ in range(4): value = self.frame(left=("index",))
+        self.assertTrue(self.finger(value, "left", "index")["pressed"])
+
+    def test_auto_missing_coupled_and_bouncing_poses_do_not_advance_and_can_retry(self):
+        self.engine.command("start_calibration", self.now)
+        for _ in range(24): value = self.frame(hands=(), advance=250)
+        self.assertEqual(value["stage"], "NEUTRAL")
+        for _ in range(16): value = self.frame()
+        self.assertEqual(value["stage"], "LEFT_THUMB")
+        for _ in range(20): self.frame()
+        for _ in range(20): value = self.frame(left=("thumb", "index"))
+        self.assertEqual(value["stage"], "LEFT_THUMB")
+        for _ in range(20): self.frame()
+        for i in range(30): value = self.frame(left=("thumb",) if i % 2 else ())
+        self.assertEqual(value["stage"], "LEFT_THUMB")
+        for _ in range(20): self.frame()
+        for _ in range(16): value = self.frame(left=("thumb",))
+        self.assertEqual(value["stage"], "LEFT_INDEX")
+
+    def test_disarm_cancels_automatic_flow_and_manual_capture_still_works(self):
+        self.engine.command("start_calibration", self.now)
+        self.engine.command("disarm", self.now)
+        for _ in range(30): value = self.frame(advance=250)
+        self.assertEqual(value["stage"], "NEUTRAL")
+        self.assertEqual(self.capture()["stage"], "LEFT_THUMB")
+
+    def test_auto_guidance_accepts_mcp_strokes_and_learns_either_signed_direction(self):
+        self.engine.command("start_calibration", self.now)
+        for _ in range(20): self.frame(advance=250)
+        for _ in range(16): self.frame()
+        for side in ("left", "right"):
+            for name in FINGERS:
+                for _ in range(20): self.frame()
+                poses = tuple(observed(h, ("thumb",)) if h == side and name == "thumb" else
+                              mcp_tap(h, name, angle=-.65 if h == "right" else .65) if h == side else observed(h)
+                              for h in ("left", "right"))
+                for _ in range(16): value = self.frame(hands=poses)
+        self.assertEqual(value["stage"], "READY")
+        self.engine.command("arm", self.now)
+        for _ in range(8): self.frame()
+        for _ in range(4): value = self.frame(hands=(observed("left"), mcp_tap("right", "index", angle=-.65)))
+        self.assertTrue(self.finger(value, "right", "index")["pressed"])
+
+    def test_auto_idle_and_unstable_neutral_do_not_capture_a_blind_timer(self):
+        self.engine.command("start_calibration", self.now)
+        for _ in range(20): self.frame(advance=250)
+        for i in range(40): value = self.frame(left=("index",) if i % 2 else ())
+        self.assertEqual(value["stage"], "NEUTRAL")
+        for _ in range(16): value = self.frame()
+        self.assertEqual(value["stage"], "LEFT_THUMB")
+        for _ in range(20): self.frame()
+        for _ in range(65): value = self.frame(advance=250)
+        self.assertEqual(value["stage"], "LEFT_THUMB")
+        self.assertEqual(value["status"], "WAITING")
+        self.assertFalse(value["armed"])
+
+    def test_in_plane_finger_splay_does_not_count_as_mcp_downstroke(self):
+        base = observed("left")
+        spread = list(base.landmarks)
+        anchor = spread[5]
+        for i in (6, 7, 8):
+            x, y, z = (spread[i][axis]-anchor[axis] for axis in range(3))
+            spread[i] = (anchor[0]+x*cos(.3)-y*sin(.3), anchor[1]+x*sin(.3)+y*cos(.3), anchor[2]+z)
+        before = self.engine.features(base)["index"]
+        after = self.engine.features(CameraHand("left", tuple(spread), .99))["index"]
+        self.assertAlmostEqual(dist(before, after), 0., places=10)
+
+    def test_mcp_palm_frame_feature_survives_rigid_rotation_translation_and_scale(self):
+        for side in ("left", "right"):
+            hand = mcp_tap(side, "index", angle=.65 if side == "left" else -.65)
+            moved = rigid_move(hand)
+            wrist = moved.landmarks[0]
+            scaled = CameraHand(side, tuple(tuple(wrist[i]+.7*(p[i]-wrist[i]) for i in range(3))
+                                            for p in moved.landmarks), .99)
+            original = self.engine.features(hand)
+            transformed = self.engine.features(scaled)
+            for name in FINGERS:
+                self.assertAlmostEqual(dist(original[name], transformed[name]), 0., places=10)
+
+    def test_auto_hand_loss_during_capture_requires_neutral_before_retry(self):
+        self.engine.command("start_calibration", self.now)
+        for _ in range(20): self.frame(advance=250)
+        for _ in range(16): self.frame()
+        for _ in range(20): self.frame()
+        for _ in range(8): self.frame(left=("thumb",))
+        self.frame(hands=(observed("right"),))
+        for _ in range(20): value = self.frame(left=("thumb",))
+        self.assertEqual(value["stage"], "LEFT_THUMB")
+        for _ in range(20): self.frame()
+        for _ in range(16): value = self.frame(left=("thumb",))
+        self.assertEqual(value["stage"], "LEFT_INDEX")
+
     def test_too_few_or_missing_samples_cannot_calibrate(self):
         self.engine.command("capture", self.now)
         self.frame(advance=1500)
@@ -121,9 +289,9 @@ class AirTypingTests(unittest.TestCase):
         base = self.engine.features(observed("left"))
         thumb = self.engine.features(observed("left", ("thumb",)))
         index = self.engine.features(observed("left", ("index",)))
-        self.assertGreater(thumb["thumb"]-base["thumb"], .08)
+        self.assertGreater(dist(thumb["thumb"], base["thumb"]), .08)
         self.assertEqual(thumb["index"], base["index"])
-        self.assertGreater(index["index"]-base["index"], .08)
+        self.assertGreater(dist(index["index"], base["index"]), .08)
         self.assertEqual(index["thumb"], base["thumb"])
 
     def test_both_hands_can_press_multiple_fingers_without_global_debounce(self):

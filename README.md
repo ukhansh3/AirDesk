@@ -8,8 +8,10 @@
 
 1. Start the existing PC camera panel with `Run-AirDesk.cmd` and select your camera/model.
 2. Open `android-client/` in Android Studio and run the debug `app` on your emulator.
-3. Default **양손 열손가락** is the experimental AIR profile. Select **연결 → 보정** and follow the
-   neutral/ten-finger prompts with **자세 확인** (1.5-second delay, then hold the indicated pose).
+3. For a readable development view, click **큰 키보드 창** on the PC panel and resize it first.
+   Default **양손 열손가락** is the experimental AIR profile. Select **연결 → 자동 보정 시작** once;
+   use the five-second preparation time, then follow the neutral/ten-finger prompts hands-free.
+   Stable poses advance automatically; return to neutral between fingers. No repeated capture clicks.
 4. Select **메모 입력 → 타건 켜기**, show a neutral pose to rearm, then flex/release individual fingers.
    Ten fingertip markers and held-key feedback use the complete keyboard layout. Move the right hand
    into its side mouse area and rearm for index/Pinch mouse controls. All text stays in app-owned editors.

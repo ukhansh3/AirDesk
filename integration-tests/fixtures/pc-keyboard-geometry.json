@@ -1,0 +1,579 @@
+{
+  "width": 1120.0,
+  "height": 360.0,
+  "keys": [
+    {
+      "code": "Escape",
+      "left": 8.0,
+      "top": 44.0,
+      "width": 74.0,
+      "height": 48.0
+    },
+    {
+      "code": "F1",
+      "left": 86.0,
+      "top": 44.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "F2",
+      "left": 138.0,
+      "top": 44.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "F3",
+      "left": 190.0,
+      "top": 44.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "F4",
+      "left": 242.0,
+      "top": 44.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "F5",
+      "left": 294.0,
+      "top": 44.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "F6",
+      "left": 346.0,
+      "top": 44.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "F7",
+      "left": 398.0,
+      "top": 44.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "F8",
+      "left": 450.0,
+      "top": 44.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "F9",
+      "left": 502.0,
+      "top": 44.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "F10",
+      "left": 554.0,
+      "top": 44.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "F11",
+      "left": 606.0,
+      "top": 44.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "F12",
+      "left": 658.0,
+      "top": 44.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Backquote",
+      "left": 8.0,
+      "top": 96.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Digit1",
+      "left": 60.0,
+      "top": 96.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Digit2",
+      "left": 112.0,
+      "top": 96.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Digit3",
+      "left": 164.0,
+      "top": 96.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Digit4",
+      "left": 216.0,
+      "top": 96.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Digit5",
+      "left": 268.0,
+      "top": 96.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Digit6",
+      "left": 320.0,
+      "top": 96.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Digit7",
+      "left": 372.0,
+      "top": 96.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Digit8",
+      "left": 424.0,
+      "top": 96.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Digit9",
+      "left": 476.0,
+      "top": 96.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Digit0",
+      "left": 528.0,
+      "top": 96.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Minus",
+      "left": 580.0,
+      "top": 96.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Equal",
+      "left": 632.0,
+      "top": 96.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Backspace",
+      "left": 684.0,
+      "top": 96.0,
+      "width": 100.0,
+      "height": 48.0
+    },
+    {
+      "code": "Tab",
+      "left": 8.0,
+      "top": 148.0,
+      "width": 74.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyQ",
+      "left": 86.0,
+      "top": 148.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyW",
+      "left": 138.0,
+      "top": 148.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyE",
+      "left": 190.0,
+      "top": 148.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyR",
+      "left": 242.0,
+      "top": 148.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyT",
+      "left": 294.0,
+      "top": 148.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyY",
+      "left": 346.0,
+      "top": 148.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyU",
+      "left": 398.0,
+      "top": 148.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyI",
+      "left": 450.0,
+      "top": 148.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyO",
+      "left": 502.0,
+      "top": 148.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyP",
+      "left": 554.0,
+      "top": 148.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "BracketLeft",
+      "left": 606.0,
+      "top": 148.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "BracketRight",
+      "left": 658.0,
+      "top": 148.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Backslash",
+      "left": 710.0,
+      "top": 148.0,
+      "width": 74.0,
+      "height": 48.0
+    },
+    {
+      "code": "CapsLock",
+      "left": 8.0,
+      "top": 200.0,
+      "width": 87.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyA",
+      "left": 99.0,
+      "top": 200.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyS",
+      "left": 151.0,
+      "top": 200.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyD",
+      "left": 203.0,
+      "top": 200.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyF",
+      "left": 255.0,
+      "top": 200.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyG",
+      "left": 307.0,
+      "top": 200.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyH",
+      "left": 359.0,
+      "top": 200.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyJ",
+      "left": 411.0,
+      "top": 200.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyK",
+      "left": 463.0,
+      "top": 200.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyL",
+      "left": 515.0,
+      "top": 200.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Semicolon",
+      "left": 567.0,
+      "top": 200.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Quote",
+      "left": 619.0,
+      "top": 200.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Enter",
+      "left": 671.0,
+      "top": 200.0,
+      "width": 113.0,
+      "height": 48.0
+    },
+    {
+      "code": "ShiftLeft",
+      "left": 8.0,
+      "top": 252.0,
+      "width": 113.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyZ",
+      "left": 125.0,
+      "top": 252.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyX",
+      "left": 177.0,
+      "top": 252.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyC",
+      "left": 229.0,
+      "top": 252.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyV",
+      "left": 281.0,
+      "top": 252.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyB",
+      "left": 333.0,
+      "top": 252.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyN",
+      "left": 385.0,
+      "top": 252.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "KeyM",
+      "left": 437.0,
+      "top": 252.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Comma",
+      "left": 489.0,
+      "top": 252.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Period",
+      "left": 541.0,
+      "top": 252.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "Slash",
+      "left": 593.0,
+      "top": 252.0,
+      "width": 48.0,
+      "height": 48.0
+    },
+    {
+      "code": "ShiftRight",
+      "left": 645.0,
+      "top": 252.0,
+      "width": 139.0,
+      "height": 48.0
+    },
+    {
+      "code": "ControlLeft",
+      "left": 8.0,
+      "top": 304.0,
+      "width": 74.0,
+      "height": 48.0
+    },
+    {
+      "code": "AltLeft",
+      "left": 86.0,
+      "top": 304.0,
+      "width": 74.0,
+      "height": 48.0
+    },
+    {
+      "code": "Lang",
+      "left": 164.0,
+      "top": 304.0,
+      "width": 74.0,
+      "height": 48.0
+    },
+    {
+      "code": "Space",
+      "left": 242.0,
+      "top": 304.0,
+      "width": 386.0,
+      "height": 48.0
+    },
+    {
+      "code": "AltRight",
+      "left": 632.0,
+      "top": 304.0,
+      "width": 74.0,
+      "height": 48.0
+    },
+    {
+      "code": "ControlRight",
+      "left": 710.0,
+      "top": 304.0,
+      "width": 74.0,
+      "height": 48.0
+    },
+    {
+      "code": "Home",
+      "left": 796.0,
+      "top": 96.0,
+      "width": 52.0,
+      "height": 48.0
+    },
+    {
+      "code": "End",
+      "left": 852.0,
+      "top": 96.0,
+      "width": 52.0,
+      "height": 48.0
+    },
+    {
+      "code": "Delete",
+      "left": 908.0,
+      "top": 96.0,
+      "width": 52.0,
+      "height": 48.0
+    },
+    {
+      "code": "PageUp",
+      "left": 796.0,
+      "top": 148.0,
+      "width": 80.0,
+      "height": 48.0
+    },
+    {
+      "code": "PageDown",
+      "left": 880.0,
+      "top": 148.0,
+      "width": 80.0,
+      "height": 48.0
+    },
+    {
+      "code": "ArrowUp",
+      "left": 852.0,
+      "top": 252.0,
+      "width": 52.0,
+      "height": 48.0
+    },
+    {
+      "code": "ArrowLeft",
+      "left": 796.0,
+      "top": 304.0,
+      "width": 52.0,
+      "height": 48.0
+    },
+    {
+      "code": "ArrowDown",
+      "left": 852.0,
+      "top": 304.0,
+      "width": 52.0,
+      "height": 48.0
+    },
+    {
+      "code": "ArrowRight",
+      "left": 908.0,
+      "top": 304.0,
+      "width": 52.0,
+      "height": 48.0
+    }
+  ],
+  "mouse": {
+    "left": 972.0,
+    "top": 44.0,
+    "width": 140.0,
+    "height": 308.0
+  }
+}

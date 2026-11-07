@@ -1,9 +1,10 @@
 """Experimental, calibrated ten-finger AIR typing hints. NEVER OS input.
 
 Specification / boundary:
-* This infers deliberate finger folding from relative 3D hand shape. It does not
+* This infers deliberate finger folding/MCP depression from relative 3D hand shape. It does not
   measure pressure, physical contact, absolute depth or a physical keyboard plane.
-* Calibration captures neutral + each of ten deliberately flexed fingers. A pose
+* One start runs guided automatic stable-pose capture: neutral + ten finger strokes.
+  Manual capture remains available. Each finger learns its own shape-vector direction. A pose
   that cannot be separated from neutral fails at that stage and may be retried.
 * Camera normalized x/y map DIRECTLY to the full 1120x360 virtual surface. There
   is no hidden keyboard rescaling. The side pad is a separate intent region.
@@ -47,6 +48,25 @@ UP_MS = 50
 DEBOUNCE_MS = 140
 STALE_MS = 750
 MAX_HOLD_MS = 5000
+AUTO_START_MS = 5000
+AUTO_NEUTRAL_MS = 700
+AUTO_IDLE_MS = 15000
+Feature = tuple[float, float]
+
+
+def _subtract(a, b):
+    return tuple(x-y for x, y in zip(a, b))
+
+
+def _dot(a, b):
+    return sum(x*y for x, y in zip(a, b))
+
+
+def _unit(vector):
+    length = dist(vector, (0.,)*len(vector))
+    if length < 1e-5:
+        raise ValueError("degenerate palm/finger direction")
+    return tuple(v/length for v in vector)
 
 
 @dataclass
@@ -59,6 +79,7 @@ class _Finger:
     last_up: int = -100000
     hover: tuple[float, float] = (.5, .5)
     captured: tuple[float, float] = (.5, .5)
+    neutral_since: int | None = None
 
 
 class AirTypingEngine:
@@ -76,18 +97,24 @@ class AirTypingEngine:
         self.stage = "NEUTRAL"
         self.status = "WAITING"
         self.armed = False
-        self._neutral: dict[tuple[str, str], float] = {}
+        self._neutral: dict[tuple[str, str], Feature] = {}
         self._noise: dict[tuple[str, str], float] = {}
         self._thresholds: dict[tuple[str, str], tuple[float, float]] = {}
+        self._directions: dict[tuple[str, str], Feature] = {}
         self._fingers = {(hand, finger): _Finger() for hand in HANDS for finger in FINGERS}
-        self._neutral_since: dict[str, int] = {}
         self._wrists: dict[str, tuple[float, float]] = {}
         self._neutral_order: float | None = None
         self._last_ms = -1
         self._capture_at: int | None = None
-        self._samples: list[dict[tuple[str, str], float]] = []
+        self._samples: list[dict[tuple[str, str], Feature]] = []
         self._capture_invalid = False
         self._capture_order: list[float] = []
+        self._automatic = False
+        self._auto_not_before = 0
+        self._auto_neutral_since: int | None = None
+        self._auto_ready = False
+        self._auto_ready_since = 0
+        self._sample_times: list[int] = []
         self._mouse = GestureEngine()
         self._mouse_active = False
         self._mouse_since: int | None = None
@@ -101,7 +128,12 @@ class AirTypingEngine:
             raise ValueError("unknown AIR typing command")
         if action in {"reset", "start_calibration"}:
             self._reset()
+            if action == "start_calibration":
+                self._automatic = True
+                self._auto_not_before = now_ms + AUTO_START_MS
+                self.status = "COUNTDOWN"
             return
+        self._automatic = False  # capture is the explicit legacy/manual fallback.
         if action == "disarm":
             self.armed = False
             self._release_all()
@@ -119,6 +151,7 @@ class AirTypingEngine:
             self._capture_at = now_ms + COUNTDOWN_MS
             self._samples = []
             self._capture_order = []
+            self._sample_times = []
             self._capture_invalid = False
             self.status = "COUNTDOWN"
 
@@ -131,25 +164,35 @@ class AirTypingEngine:
         return max(0., min(1., 1. - dist(chain[0], chain[-1]) / length))
 
     @classmethod
-    def _thumb_feature(cls, points: tuple[tuple[float, float, float], ...]) -> float:
+    def _thumb_feature(cls, points: tuple[tuple[float, float, float], ...], normal) -> Feature:
         # Thumb has CMC/MCP/IP anatomy, not the other fingers' MCP/PIP/DIP chain.
-        return cls._folding(points, (1, 2, 3, 4))
+        return cls._folding(points, (1, 2, 3, 4)), _dot(_unit(_subtract(points[3], points[2])), normal)
 
     @classmethod
-    def features(cls, hand: CameraHand) -> dict[str, float]:
+    def features(cls, hand: CameraHand) -> dict[str, Feature]:
+        """(chain folding, signed MCP flex relative to palm), both dimensionless.
+
+        A straight MCP-only stroke has no chain shortening. Its proximal phalanx
+        does change direction relative to the palm normal, while translating or
+        rigidly rotating the whole hand changes neither feature. Calibration learns
+        the sign/direction; no camera-facing or anatomical down sign is guessed.
+        """
         if len(hand.landmarks) != 21 or not isfinite(hand.y_scale) or not .1 <= hand.y_scale <= 10:
             raise ValueError("invalid hand dimensions")
         points = tuple((float(x), float(y) * hand.y_scale, float(z)) for x, y, z in hand.landmarks)
         if not all(isfinite(v) for p in points for v in p) or dist(points[0], points[9]) < .02:
             raise ValueError("invalid hand shape")
-        values = {"thumb": cls._thumb_feature(points)}
+        a, b = _subtract(points[5], points[0]), _subtract(points[17], points[0])
+        normal = _unit((a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]))
+        values = {"thumb": cls._thumb_feature(points, normal)}
         for name, base in zip(FINGERS[1:], (5, 9, 13, 17)):
-            values[name] = cls._folding(points, (base, base+1, base+2, base+3))
+            values[name] = (cls._folding(points, (base, base+1, base+2, base+3)),
+                            _dot(_unit(_subtract(points[base+1], points[base])), normal))
         return values
 
-    def _observations(self, sample: CameraSample) -> tuple[dict[str, CameraHand], dict[tuple[str, str], float]]:
+    def _observations(self, sample: CameraSample) -> tuple[dict[str, CameraHand], dict[tuple[str, str], Feature]]:
         hands: dict[str, CameraHand] = {}
-        features: dict[tuple[str, str], float] = {}
+        features: dict[tuple[str, str], Feature] = {}
         known_labels = [h.handedness for h in sample.hands if h.handedness in HANDS]
         if len(sample.hands) > 2 or len(known_labels) != len(set(known_labels)):
             return {}, {}
@@ -181,7 +224,6 @@ class AirTypingEngine:
     def _release_hand(self, hand: str):
         for name in FINGERS:
             self._fingers[hand, name] = _Finger()
-        self._neutral_since.pop(hand, None)
         if hand == "right":
             self._mouse_active = False
             self._mouse_since = None
@@ -192,7 +234,10 @@ class AirTypingEngine:
         for hand in HANDS:
             self._release_hand(hand)
 
-    def _calibrate(self, now: int, hands: dict[str, CameraHand], features: dict[tuple[str, str], float]):
+    def _calibrate(self, now: int, hands: dict[str, CameraHand], features: dict[tuple[str, str], Feature]):
+        if self._automatic:
+            self._auto_calibrate(now, hands, features)
+            return
         if self._capture_at is None:
             return
         if now < self._capture_at:
@@ -207,49 +252,143 @@ class AirTypingEngine:
                 self._capture_invalid = True
             return
         self._capture_at = None
+        self._finish_capture()
+
+    def _capture_statistics(self):
+        center = {key: tuple(median(s[key][axis] for s in self._samples) for axis in (0, 1)) for key in self._fingers}
+        spread = {key: 2*max(dist(s[key], center[key]) for s in self._samples) for key in self._fingers}
+        return center, spread
+
+    def _finish_capture(self) -> bool:
         if self._capture_invalid or len(self._samples) < MIN_CAPTURE_FRAMES:
             self.status = "FAILED"
-            return
-        center = {key: median(s[key] for s in self._samples) for key in self._fingers}
-        spread = {key: max(s[key] for s in self._samples)-min(s[key] for s in self._samples) for key in self._fingers}
+            return False
+        center, spread = self._capture_statistics()
         if self.stage == "NEUTRAL":
-            if any(center[key] > .6 or spread[key] > .08 for key in center):
+            if any(center[key][0] > .6 or spread[key] > .08 for key in center):
                 self.status = "FAILED"
-                return
+                return False
             self._neutral, self._noise = center, spread
             self._neutral_order = median(self._capture_order)
         else:
             side, name = self.stage.lower().split("_", 1)
             key = side, name
-            delta = center[key] - self._neutral[key]
+            difference = _subtract(center[key], self._neutral[key])
+            delta = dist(center[key], self._neutral[key])
             minimum = max(.08, 4 * self._noise[key])
             if delta < minimum or spread[key] > max(.08, delta * .3) or any(
-                abs(center[other]-self._neutral[other]) > max(.10, delta*.65)
+                dist(center[other], self._neutral[other]) > max(.10, delta*.65)
                 for other in center if other != key
             ):
                 self.status = "FAILED"
-                return
-            self._thresholds[key] = (self._neutral[key] + delta*.55, self._neutral[key] + delta*.25)
+                return False
+            self._directions[key] = _unit(difference)
+            self._thresholds[key] = (delta*.55, delta*.25)
         self.stage = STAGES[STAGES.index(self.stage) + 1]
         self.status = "READY" if self.stage == "READY" else "WAITING"
+        return True
 
-    def _neutral_hand(self, hand: str, features: dict[tuple[str, str], float]) -> bool:
-        return all((hand, name) in self._thresholds and features.get((hand, name), 2.) <= self._thresholds[hand, name][1]
+    def _clear_auto_window(self):
+        self._samples = []
+        self._sample_times = []
+        self._capture_order = []
+        self._capture_invalid = False
+
+    def _all_neutral(self, features) -> bool:
+        return len(features) == 10 and all(dist(features[key], self._neutral[key]) <= max(.08, 4*self._noise[key])
+                                          for key in self._fingers)
+
+    def _auto_calibrate(self, now: int, hands: dict[str, CameraHand], features):
+        if now < self._auto_not_before:
+            self.status = "COUNTDOWN"
+            return
+        if len(hands) != 2 or len(features) != 10:
+            self._clear_auto_window()
+            self._auto_neutral_since = None
+            self._auto_ready = False
+            self.status = "WAITING"
+            return
+        target = None if self.stage == "NEUTRAL" else tuple(self.stage.lower().split("_", 1))
+        if target is not None:
+            if not self._auto_ready:
+                if self._all_neutral(features):
+                    if self._auto_neutral_since is None:
+                        self._auto_neutral_since = now
+                    self.status = "COUNTDOWN"
+                    if now-self._auto_neutral_since >= AUTO_NEUTRAL_MS:
+                        self._auto_ready = True
+                        self._auto_ready_since = now
+                        self.status = "WAITING"
+                else:
+                    self._auto_neutral_since = None
+                    self.status = "COUNTDOWN" if self.status != "FAILED" else "FAILED"
+                return
+            delta = dist(features[target], self._neutral[target])
+            coupled = any(dist(features[key], self._neutral[key]) > max(.10, delta*.65)
+                          for key in self._fingers if key != target)
+            if coupled:
+                self._clear_auto_window()
+                self._auto_ready = False
+                self._auto_neutral_since = None
+                self.status = "FAILED"
+                return
+            if delta < max(.08, 4*self._noise[target]):
+                self._clear_auto_window()
+                self.status = "WAITING"
+                # Idle prompts stay on this stage; never capture a blind timer pose.
+                if now-self._auto_ready_since >= AUTO_IDLE_MS:
+                    self._auto_ready_since = now
+                return
+        elif any(value[0] > .6 for value in features.values()):
+            self._clear_auto_window()
+            self.status = "WAITING"
+            return
+        self._samples.append(features.copy())
+        self._sample_times.append(now)
+        self._capture_order.append(hands["right"].landmarks[0][0] - hands["left"].landmarks[0][0])
+        # Let the user settle into the pose: discard an unstable leading sample
+        # instead of demanding a new click or mistaking the initial movement for a hold.
+        while len(self._samples) > 1:
+            _, spread = self._capture_statistics()
+            limit = max(.08, dist(features[target], self._neutral[target])*.3) if target else .08
+            if all(spread[key] <= (limit if key == target else .08) for key in self._fingers):
+                break
+            self._samples.pop(0); self._sample_times.pop(0); self._capture_order.pop(0)
+        self.status = "CAPTURING"
+        if now-self._sample_times[0] >= CAPTURE_MS and len(self._samples) >= MIN_CAPTURE_FRAMES:
+            success = self._finish_capture()
+            self._clear_auto_window()
+            self._auto_neutral_since = None
+            self._auto_ready = False
+            if success:
+                if self.stage == "READY":
+                    self._automatic = False
+                    self.armed = False
+                else:
+                    self.status = "COUNTDOWN"
+
+    def _projection(self, key, feature: Feature) -> float:
+        return _dot(_subtract(feature, self._neutral[key]), self._directions[key])
+
+    def _neutral_hand(self, hand: str, features: dict[tuple[str, str], Feature]) -> bool:
+        return all((hand, name) in self._thresholds and (hand, name) in features and
+                   self._projection((hand, name), features[hand, name]) <= self._thresholds[hand, name][1]
                    for name in FINGERS)
 
-    def _typing(self, hand: CameraHand, features: dict[tuple[str, str], float], now: int):
+    def _typing(self, hand: CameraHand, features: dict[tuple[str, str], Feature], now: int):
         side = hand.handedness
-        if self._neutral_hand(side, features):
-            self._neutral_since.setdefault(side, now)
-        else:
-            self._neutral_since.pop(side, None)
-        rearmed = side in self._neutral_since and now-self._neutral_since[side] >= NEUTRAL_REARM_MS
         for name in FINGERS:
             key = side, name
             state = self._fingers[key]
             xy = hand.landmarks[TIP[name]][:2]
             down, up = self._thresholds[key]
-            value = features[key]
+            value = self._projection(key, features[key])
+            if value <= up:
+                if state.neutral_since is None:
+                    state.neutral_since = now
+            else:
+                state.neutral_since = None
+            rearmed = state.neutral_since is not None and now-state.neutral_since >= NEUTRAL_REARM_MS
             if not state.ready:
                 if rearmed:
                     state.ready = True
@@ -281,14 +420,13 @@ class AirTypingEngine:
                 state.pending_down = None
                 state.hover = xy
 
-    def _update_mouse(self, hand: CameraHand, features: dict[tuple[str, str], float], now: int) -> bool:
+    def _update_mouse(self, hand: CameraHand, features: dict[tuple[str, str], Feature], now: int) -> bool:
         wrist_x, wrist_y, _ = hand.landmarks[0]
         in_pad = wrist_x >= MOUSE_ROI[0] and MOUSE_ROI[1] <= wrist_y <= MOUSE_ROI[3]
         if not self._mouse_active:
             if in_pad:
                 for name in FINGERS:
                     self._fingers["right", name] = _Finger()
-                self._neutral_since.pop("right", None)
                 if self._neutral_hand("right", features) and self._pinch_open(hand):
                     if self._mouse_since is None:
                         self._mouse_since = now
@@ -318,7 +456,7 @@ class AirTypingEngine:
         reference = dist(p[0][:2], p[9][:2])
         return reference > 1e-5 and dist(p[4][:2], p[8][:2])/reference >= self._mouse.config.release_ratio
 
-    def _payload(self, hands: dict[str, CameraHand], features: dict[tuple[str, str], float]) -> dict:
+    def _payload(self, hands: dict[str, CameraHand], features: dict[tuple[str, str], Feature]) -> dict:
         fingers = []
         for side in HANDS:
             hand = hands.get(side)
@@ -347,6 +485,10 @@ class AirTypingEngine:
             return self._last_payload
         if self._last_ms >= 0 and now-self._last_ms > STALE_MS:
             self._release_all()
+            if self._automatic:
+                self._clear_auto_window()
+                self._auto_ready = False
+                self._auto_neutral_since = None
         self._last_ms = now
         hands, features = self._observations(sample)
         if sample.loss_reason != "hand_not_detected" and not sample.hands:

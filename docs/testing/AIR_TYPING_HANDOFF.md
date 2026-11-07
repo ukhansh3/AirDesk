@@ -1,7 +1,7 @@
 # Experimental ten-finger midair typing — handoff
 
 Date: 2026-11-07. Scope: isolated AirDesk-owned DEBUG DEMO only.
-Status: **IMPLEMENTED (EXPERIMENTAL) + AUTOMATED PASS; actual webcam typing accuracy and PLEOS behavior NOT_RUN; operational vehicle input BLOCKED**.
+Status: **IMPLEMENTED (EXPERIMENTAL) + AUTOMATED PASS: automatic calibration and PC large-keyboard window; actual webcam typing accuracy and PLEOS/PC window rendering NOT_RUN; operational vehicle input BLOCKED**.
 
 ## What is implemented
 
@@ -10,6 +10,29 @@ with a slightly elevated frontal camera, flex/downstroke and release inference, 
 This is different from the preserved single-index cursor with Pinch-selected screen keys.
 The PC keyboard, its navigation/function/modifier groups and the side mouse area fit one surface;
 small windows scale the entire surface instead of requiring keyboard paging.
+
+The current update removes the need to click a capture button eleven times. **연결 → 자동 보정 시작**
+starts one guided automatic sequence: five seconds to prepare, stable neutral sampling, then automatic
+pose detection/sampling for ten prompted fingers. The user still performs the instructed motions;
+timers alone do not manufacture calibration. Successful completion remains disarmed until the user
+explicitly selects **타건 켜기**. The old `capture` command remains a compatibility/manual fallback,
+not the default app workflow.
+Calibrated features now include palm-relative MCP downstroke as well as finger folding, and neutral
+rearm is per finger so one held modifier does not prevent another finger from becoming ready.
+Synthetic regression tests cover these distinctions; actual comfortable typing remains unverified.
+
+The user selected a **dedicated large keyboard window on the PC monitor for development testing**.
+The PC camera panel now has **큰 키보드 창**. It opens a resizable 1200×500 read-only Tk window with
+the complete 81-key layout, navigation/function/modifier groups, side mouse region, ten labeled colored
+fingertip markers and estimated pressed-key highlights. Geometry matches the Android 1120×360 design
+through a shared synthetic parity fixture; no layout or key IDs change between displays.
+
+The headline states **DEMO · 누름 추정 / 실제 입력 상태는 Android 앱에서 확인**. These colors show
+recognizer estimates, not confirmation that Android accepted a key or inserted text. This window
+receives only bounded latest AIR state, no editor text, keystroke history, tokens or camera pixels.
+It opens only when the user presses the button; the automatic test harness does not open it.
+Disconnect/stop clears the display; an independent 500 ms local display watchdog also removes stale
+dots/highlights. Closing/reopening does not restore an expired held estimate.
 
 The approved recognition/profile design is documented in
 [AIR_TYPING_SPEC.md](../features/AIR_TYPING_SPEC.md). Complete landmark-derived frames are
@@ -56,32 +79,57 @@ the actual PLEOS emulator remain NOT_RUN. Do not substitute old v0.1 streaming f
    convention differs. The development environment has 0.10.35. On unknown/older versions the PC panel
    warns and falls back to the preserved single-hand path; that fallback cannot satisfy AIR calibration.
    This is a checked version boundary, not proof of anatomical labeling on hardware.
-3. In the app, select **양손 열손가락 → 연결 → 보정**. Press **자세 확인** for the neutral stage, return both
-   hands to view during the **1.5-second delay**, then hold the requested pose during the following
-   **0.5-second sample window**. Follow each on-screen prompt and repeat **자세 확인** for left thumb,
-   index, middle, ring, little, then right thumb, index, middle, ring, little: eleven successful captures
-   including neutral. **자세 확인** captures an in-memory landmark-feature sample, not saved video.
-   Failed separation stays disarmed; retry that prompted pose. Missing/unstable samples cannot arm typing.
-4. In preview, confirm ten distinct markers follow the intended fingers and hovered keys. Hover and
+   Press **큰 키보드 창** and enlarge/arrange this PC window **before** connecting or starting calibration
+   in Android. It can be opened before the camera starts; **AIR 데이터 대기** is expected until the AIR
+   client connects. Leave the PC window visible and keep the Android app foreground during the
+   hands-free calibration/typing flow. Actual host/emulator window-focus behavior remains unverified.
+3. In the app, select **양손 열손가락 → 연결 → 자동 보정 시작** once. Put both hands in view during the
+   five-second preparation period, then keep the comfortable neutral pose stable. The recognizer
+   requires at least six valid frames spanning 0.5 seconds; motion, missing hands or ambiguous identity
+   must not let a blind timer advance the sequence.
+4. Follow the visible **1/11 … 11/11** guide. After neutral, the order is left thumb, index, middle,
+   ring, little, then right thumb, index, middle, ring, little. Before each finger sample, return both
+   hands to the neutral pose for 700 ms. When prompted, move only the named finger downward like
+   pressing a key and hold briefly; a separable stable 0.5-second pose is sampled automatically. There
+   is no per-stage button. An unstable/coupled pose stays on that stage for correction. **보정 취소**
+   stops calibration and remains disarmed. Samples are feature vectors held in memory, not saved video.
+   The large PC window follows the current prompt automatically; do not click or switch to it for each pose.
+5. In preview, confirm ten distinct markers follow the intended fingers and hovered keys. Hover and
    holding a flexed finger before arming must not type. Reposition or recalibrate if markers drift.
-5. When **보정 완료** appears, select **메모 입력 → 타건 켜기**. Return fingers to the neutral pose,
+6. When **보정 완료 · 11/11** appears, select **메모 입력 → 타건 켜기**. Return fingers to the neutral pose,
    then flex and release one finger at a time over a hovered key.
    Each deliberate downstroke should produce one local key activation, with no hold-repeat. Test
    thumb Space, letters, Backspace and Korean/English editing with synthetic text.
-6. Test each finger separately and alternating hands. Test Shift plus a letter, Ctrl+A/C/V/X/Z only
+7. Test each finger separately and alternating hands. Test Shift plus a letter, Ctrl+A/C/V/X/Z only
    inside the selected editor, two fingers targeting the same key and simultaneous ordinary keys.
    Held modifier ownership must release when its owning finger disappears or the mode changes.
-7. Move the right wrist into the camera image's right-side mouse region (the same normalized region
+8. Move the right wrist into the camera image's right-side mouse region (the same normalized region
    drawn beside the keyboard). Its typing ownership must release before mouse
    input, and transition requires neutral rearm. Test approved index/Pinch mouse behavior and explicit
    **왼쪽 클릭 / 우클릭 1회 / 스크롤 모드** controls. Keep Pinch released during the 300 ms mouse-entry
    dwell, then test click/drag. Return to keyboard region and verify neutral rearm before typing.
-8. Remove one finger/hand, obscure or cross hands, then separately disconnect, background/unfocus the
+9. Remove one finger/hand, obscure or cross hands, then separately disconnect, background/unfocus the
    app, disarm and reset calibration. Check no stuck key/button, delayed phantom press or automatic
    resume. A real hand-order swap must not make the other hand inherit held ownership.
-9. Press **타건 끄기**, resize/rotate and rerun **검지·Pinch** and **Phase 1 진단** separately. Preserve
+10. Press **타건 끄기**, resize/rotate and rerun **검지·Pinch** and **Phase 1 진단** separately. Preserve
    their old cursor and failure cleanup. Changing profile/disconnecting cannot restore previous arm.
    Check safety UNKNOWN continues to block operational Work input.
+
+### If no text appears
+
+After calibration the app displays **손끝 / 누름 / 입력 키 · 상세**. Select **상세** to inspect each
+finger's local state. **손끝** counts valid observations, **누름** counts recognizer press estimates,
+and **입력 키** counts keys currently owned by the local editor controller. None measures typing accuracy.
+
+- **입력 꺼짐**: explicitly select **타건 켜기**. Completed calibration alone does not arm text entry.
+- Missing fingertips: bring both hands fully into view; calibration waits for valid distinct observations.
+- **펴기**: return that finger to its calibrated neutral pose before another downstroke.
+- **키 밖**: move its visible marker over an actual key, rather than a gap or panel margin.
+- **미지원**: choose a supported key; F2–F12 are intentionally unavailable.
+- **누름 0** while fingertips move: a deliberate stroke has not been recognized. Recheck the guided
+  pose and recalibrate; visible landmarks do not prove the classifier recognizes typing.
+- Press estimates with no character: check the selected editor and local status. Shift/Ctrl and
+  navigation keys can change state without inserting a printable character.
 
 ## Record actual measurements
 
@@ -89,6 +137,8 @@ For every hardware check record PASS/FAIL/NOT_RUN, camera/model/version, emulato
 content size/orientation, posture, lighting and calibration attempt count. Measure false/missed
 presses per finger, simultaneous-key recognition, text accuracy, latency and fatigue. Do not store
 actual typed text, passwords, frames or identifiable hand recordings in the repository.
+Also verify manual open/close, resizing, key/marker alignment, local stale clearing and multi-window
+focus with the large PC display. Its mock-Tk tests are not proof of actual Windows font/DPI rendering.
 
 Ring/little-finger coupling, thumb geometry, occlusion, hand identity ambiguity and monocular depth
 can prevent comfortable or reliable typing. Automatic synthetic tests cannot establish real typing
@@ -106,7 +156,7 @@ positive/negative shapes, strict JSON, v0.1/v0.2 isolation and the distinction b
 and semantic authorization. It does not execute classifier/consumer state machines or prove hardware typing.
 
 The QA agent also executed `python -m unittest discover -s gesture-engine/tests -p test_air_server.py -v`
-with `PYTHONPATH` pinned to this checkout's `gesture-engine/src`: the final targeted rerun passed
+with `PYTHONPATH` pinned to this checkout's `gesture-engine/src`: a previous manual-calibration targeted run passed
 **9 loopback integration tests, exit 0, 13.043 seconds**. These exercise real WebSocket authentication/denial, strict hello/commands,
 current-session/order/freshness checks, failed calibration without samples, reset/reconnect, v0.1 route
 compatibility and exclusive camera-profile ownership/release using a fake generator. All listeners use
@@ -117,12 +167,30 @@ before the estimate can receive a fresh wire envelope.
 `scripts/verify-input-first.ps1` preserves its previous stages and adds a separate experimental AIR
 contract stage; it records actual stage/test counts and leaves camera-typing accuracy as a manual gate.
 
-### Final complete harness result
+### Current final complete harness result
 
-The final ordered harness exited **0**. Its sanitized report is
-`out/input-first-verification/verification.json`, generated **2026-11-07T05:36:45.7219015Z**
-(2026-11-07 14:36:45 KST). These results include the final capture-freshness, invalid-wire cancellation,
-cross-hand ownership and camera-version-boundary corrections.
+The final ordered harness for the automatic-calibration and PC-window update exited **0**. The
+sanitized report is `out/input-first-verification/verification.json`, generated
+**2026-11-07T06:07:23.3594993Z** (2026-11-07 15:07:23 KST). All code was frozen for this run.
+
+| Stage | Actual result | Duration and limits |
+| --- | --- | --- |
+| Python regression and AIR models | **118 PASS** | 25.133 s; preserved Phase 1 tests plus automatic calibration, MCP stroke/per-finger rearm, server/camera boundaries, 13 headless PC preview tests, two latest-state runtime queue tests and source callback tests. No real webcam is opened. |
+| Original canonical wire fixtures | **5 PASS / 17 fixtures** | 0.527 s; unchanged v0.1 compatibility and strict synthetic contract checks. |
+| Experimental AIR wire fixtures | **7 PASS / 56 fixtures** | 0.513 s; existing v0.2 conformance and explicit semantic-guard distinctions. |
+| Android JVM suite and `assembleDebug` | **156 tests / 19 suites PASS; build PASS** | 39.020 s; zero failures, errors or skipped tests. Includes two parity tests for all 81 key rectangles and the side mouse rectangle against the PC fixture. |
+
+This is code/model/transport/build evidence. The headless mocked-Tk adapter tests do not prove actual
+Windows window/font/DPI rendering; JVM tests do not prove PLEOS rendering/IME behavior. The large
+PC window, camera recognition/typing accuracy, latency, comfort and multi-window focus require the
+manual checks above. Actual keyboard text is verified in the Android editor, not inferred from PC colors.
+
+### Previous manual-calibration baseline — historical result
+
+The previous ordered harness exited **0**, with report generated **2026-11-07T05:36:45.7219015Z**
+(2026-11-07 14:36:45 KST). These results covered the manual-calibration implementation, capture
+freshness, invalid-wire cancellation, cross-hand ownership and camera-version boundaries. They are
+not verification of the new automatic-calibration, MCP-stroke or per-finger-rearm edits made afterward.
 
 | Stage | Actual result | Duration and limits |
 | --- | --- | --- |
@@ -131,9 +199,30 @@ cross-hand ownership and camera-version-boundary corrections.
 | Experimental AIR wire fixtures | **7 PASS / 56 fixtures** | 0.375 s; new v0.2 shape/strict JSON/version isolation and explicit semantic-guard distinctions. |
 | Android JVM suite and `assembleDebug` | **143 tests / 17 suites PASS; build PASS** | 48.203 s; zero failures, errors or skipped tests. These are model/build results, not rendered PLEOS UI/IME evidence. |
 
-The earlier 80-test Python integration run was intermediate. The 89-test final run supersedes it;
+The earlier 80-test Python integration run was intermediate. The 89-test baseline superseded it;
 tests were retained rather than removed to obtain a pass. Contract shape acceptance still does not
 prove real finger recognition or authorize operational/global input.
+
+### Automatic calibration and PC window — verified model coverage
+
+The targeted real-loopback rerun of `test_air_server.py` passed **10 tests, exit 0, 15.793 seconds**
+after adding automatic-start/cancel coverage. The added test observes a new disarmed COUNTDOWN epoch,
+no advancement with missing hands, persistent WAITING after cancel, and rejection of arm before a
+valid calibration. This is source/transport evidence, not actual pose-recognition accuracy.
+
+The final complete harness above covers one-start automatic progression, no advancement without
+stable correct poses, cancel/disarm without automatic resume, manual-command compatibility,
+MCP downstroke sensitivity and independent finger rearm/chords.
+The versioned contracts remain unchanged by this automatic-calibration update.
+
+The selected PC companion window is implemented in `keyboard_preview.py`, with the explicit button
+hook in `desktop.py`. Its targeted headless suite passed **13 tests, exit 0, 0.046 seconds**: full
+81-key metadata/parity, non-overlap and fit, normalized fingertip hit mapping, both-hand estimates,
+invalid/disarmed/lost-state clearing, 500 ms expiry, automatic guide text and mocked Tk lifecycle/polling.
+The shared fixture is `integration-tests/fixtures/pc-keyboard-geometry.json`; Android parity tests use
+the same rectangles. No real Tk window, camera or emulator was launched by these tests.
+The final complete run includes the PC callback/UI integration, including disconnect clearing and
+display-callback isolation. Display estimates do not grant local editor, vehicle or OS input authority.
 
 No actual camera, emulator, GUI or OS input is launched by the automated harness. Historical Windows
 Host/mTLS results remain separate; their previous failures are not converted to passes by AIR tests.

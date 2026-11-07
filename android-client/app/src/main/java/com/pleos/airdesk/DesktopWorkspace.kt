@@ -142,6 +142,9 @@ fun DesktopWorkspace(
     var viewport by remember { mutableStateOf(UiBounds(0f, 0f, 0f, 0f)) }
     var gestureUi by remember { mutableStateOf(UiGestureSnapshot()) }
     var airMode by remember { mutableStateOf(true) }
+    var automaticCalibration by remember { mutableStateOf(false) }
+    var calibrationPreviousEpoch by remember { mutableStateOf<String?>(null) }
+    var showAirDetails by remember { mutableStateOf(false) }
     val latestAirMode by rememberUpdatedState(airMode)
     val airHook = remember { AirSuspendHook() }
     val editorIds = remember { listOf("document", "note") }
@@ -222,6 +225,8 @@ fun DesktopWorkspace(
         val stopAir = air.observe { signal ->
             when (signal) {
                 is AirSignal.Frame -> if (latestAirMode) {
+                    if (signal.value.stage == "READY" && signal.value.epoch != calibrationPreviousEpoch)
+                        automaticCalibration = false
                     val now = SystemClock.elapsedRealtime()
                     airController.setAllowed(latestAirAllowed)
                     airController.accept(signal.value, now)
@@ -230,6 +235,7 @@ fun DesktopWorkspace(
                     airMouse.accept(signal.value, enabled, now).forEach { router.accept(it, now) }
                 }
                 is AirSignal.Cancel -> {
+                    automaticCalibration = false
                     airController.cancel(signal.reason); keyboard.resetTransient(clearFocus = false)
                     airMouse.reset(); router.setDemoEnabled(false)
                 }
@@ -273,13 +279,18 @@ fun DesktopWorkspace(
           if (airMode) {
             DeskButton("연결", Modifier.desktopTarget(router, "air.connect", demoAllowed, modeControl = true,
                 onClick = { airHook.cancel(); keyboard.resetTransient(clearFocus = false); diagnostic.disconnect(); air.connect() }))
-            DeskButton("보정", Modifier.desktopTarget(router, "air.calibrate", demoAllowed && airState.authorized, modeControl = true,
-                onClick = { airHook.cancel(); air.command("start_calibration") }), enabled = airState.authorized)
-            val capturing = airState.frame?.status in setOf("COUNTDOWN", "CAPTURING")
-            DeskButton("자세 확인", Modifier.desktopTarget(router, "air.capture", demoAllowed && airState.authorized && !capturing && airState.frame?.stage != "READY",
-                modeControl = true, onClick = { airHook.cancel(); air.command("capture") }), enabled = airState.authorized && !capturing)
+            DeskButton(if (automaticCalibration) "보정 다시 시작" else "자동 보정 시작",
+                Modifier.desktopTarget(router, "air.calibrate", demoAllowed && airState.authorized, modeControl = true,
+                    onClick = {
+                        val previous = airState.frame?.epoch
+                        airHook.cancel(); air.command("start_calibration")
+                        calibrationPreviousEpoch = previous; automaticCalibration = true
+                    }), enabled = airState.authorized)
+            if (automaticCalibration) DeskButton("보정 취소", Modifier.desktopTarget(router, "air.cancelCalibration",
+                demoAllowed && airState.authorized, modeControl = true,
+                onClick = { air.command("disarm"); automaticCalibration = false }))
             val calibrated = airState.frame?.stage == "READY"
-            DeskButton(if (airController.snapshot.enabled) "타건 끄기" else "타건 켜기",
+            if (!automaticCalibration) DeskButton(if (airController.snapshot.enabled) "타건 끄기" else "타건 켜기",
                 Modifier.desktopTarget(router, "air.enable", demoAllowed && calibrated && airState.authorized, modeControl = true,
                     onClick = {
                         if (airController.snapshot.enabled) { airHook.cancel(); air.command("disarm") }
@@ -332,8 +343,22 @@ fun DesktopWorkspace(
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp),
                         verticalArrangement = Arrangement.spacedBy(5.dp)) { tools() }
                 }
-                Text(if (airMode) airInstruction(airState) else "${diagnosticState.status} · ${gestureUi.status}",
-                    color = Color(0xFFAFC3DF), fontSize = 12.sp, maxLines = 2)
+                if (airMode) {
+                    val prompt = AirCalibrationGuide.prompt(airState.frame, automaticCalibration, calibrationPreviousEpoch)
+                    Text(if (airState.authorized) prompt.title else airState.status,
+                        color = DeskAccent, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 1)
+                    Text(prompt.detail, color = Color(0xFFAFC3DF), fontSize = 12.sp, lineHeight = 17.sp, maxLines = 2)
+                    if (airState.frame?.stage == "READY") {
+                        Text(airController.snapshot.status, color = if (airController.snapshot.enabled) Color(0xFF9FE3C1)
+                            else Color(0xFFFFCB7D), fontSize = 12.sp, lineHeight = 17.sp, maxLines = 2)
+                        Text("손끝 ${airController.snapshot.observedFingerCount} · 누름 ${airController.snapshot.detectedPressedCount} · 입력 키 ${airController.snapshot.pressedKeyCodes.size} · 상세",
+                            modifier = Modifier.heightIn(min = 30.dp).desktopTarget(router, "air.details", demoAllowed,
+                                modeControl = true, onClick = { showAirDetails = !showAirDetails }),
+                            color = Color(0xFFAFC3DF), fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1)
+                        if (showAirDetails) for (side in listOf("left", "right")) Text(airFingerFeedback(airController.snapshot, side),
+                            color = Color(0xFFAFC3DF), fontSize = 11.sp, lineHeight = 16.sp, maxLines = 2)
+                    }
+                } else Text("${diagnosticState.status} · ${gestureUi.status}", color = Color(0xFFAFC3DF), fontSize = 12.sp, maxLines = 2)
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
                     for ((id, label) in listOf("note" to "메모 입력", "document" to "작업 문서")) {
                         DeskButton(label, Modifier.desktopTarget(router, "editor.select.$id", demoAllowed,
@@ -423,24 +448,19 @@ fun DesktopWorkspace(
     }
 }
 
-private fun airInstruction(state: AirTransportState): String {
-    val frame = state.frame ?: return state.status
-    val pose = if (frame.stage == "NEUTRAL") "양손을 편한 허공 타이핑 자세로" else {
-        val hand = if (frame.stage.startsWith("LEFT")) "왼손" else "오른손"
-        val finger = when (frame.stage.substringAfter('_')) {
-            "THUMB" -> "엄지"; "INDEX" -> "검지"; "MIDDLE" -> "중지"; "RING" -> "약지"; else -> "새끼손가락"
+private fun airFingerFeedback(snapshot: AirTypingSnapshot, side: String): String =
+    (if (side == "left") "왼손 " else "오른손 ") + listOf("thumb" to "엄지", "index" to "검지", "middle" to "중지",
+        "ring" to "약지", "little" to "새끼").joinToString(" · ") { (finger, label) ->
+        val owner = "$side.$finger"
+        val key = snapshot.hoveredKeys[owner]?.removePrefix("Key") ?: ""
+        val state = when (snapshot.fingerStates[owner]) {
+            AirFingerState.WAIT_NEUTRAL -> "펴기"; AirFingerState.HOVER -> key
+            AirFingerState.KEYDOWN -> "$key↓"; AirFingerState.NO_TARGET -> "키 밖"
+            AirFingerState.UNSUPPORTED -> "미지원"; AirFingerState.MOUSE -> "마우스"
+            AirFingerState.BLOCKED -> "꺼짐"; else -> "없음"
         }
-        "$hand $finger 하나만 굽히세요"
+        "$label:$state"
     }
-    return when (frame.status) {
-        "COUNTDOWN" -> "1.5초 뒤 수집 · $pose · 양손을 카메라에 유지"
-        "CAPTURING" -> "자세 기록 중 · 움직이지 마세요"
-        "FAILED" -> "보정 구분 실패 · $pose · 자세 확인으로 재시도"
-        "ARMED" -> "실험 타건 ON · 양손을 펴서 준비 후 손가락 굽힘/펴기 · 손끝 색: 왼쪽 파랑/오른쪽 분홍"
-        "READY" -> "보정 완료 · 메모 입력 선택 → 타건 켜기"
-        else -> "$pose · 자세 확인을 누른 뒤 양손 유지"
-    }
-}
 
 @Composable
 private fun DesktopCursor(state: UiGestureSnapshot, viewport: UiBounds) {
