@@ -6,6 +6,10 @@ Status: **PLANNED — specification only, not implemented or tested**.
 ## Why the direction changed
 The intended AirDesk product is physical-mouse/keyboard-free **PLEOS in-app** interaction, not a Windows remote desktop. Phase 1 webcam gesture detection and emulator cursor remain useful. Existing Phase 2 remote-Host code and its historical documentation are preserved as optional R&D, **not** accepted as revised Phase 2.
 
+## Clarification for in-flight coding agents (2026-11-07)
+
+**Do not implement a phone keypad.** The user's intent is a full **PC-like work keyboard** integrated into the PLEOS app: desktop-style QWERTY, modifiers, arrows, Delete, Esc/Tab, F1–F12 (honest disabled state if unsupported), Korean/English entry and app-supported shortcuts, docked near a usable work surface. Mouse-like left/right click, drag/drop and scroll are also requested for app-owned targets. Camera mappings for right-click and scrolling are unresolved and require user confirmation; touch demo controls can be used in the meantime. No Windows OS/global Android injection.
+
 ## Inventory
 - REUSE: gesture-engine, its local debug WebSocket and Android read-only cursor; user reported Phase 1 camera/cursor success.
 - BUILD: Compose app-owned target interaction router; gesture click/drag/scroll; focus and keyboard state; touch/gesture on-screen keyboard; isolated test workspace.
