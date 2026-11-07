@@ -1,3 +1,5 @@
+> **2026-11-07 product scope update:** The schemas and remote Windows Host pairing/input sections below are preserved as historical optional research. **Revised Phase 2** will route validated gesture hints to AirDesk-owned Compose UI and focused text fields via **local app actions**, not a new REST route or Windows input command. No new wire contract has been approved; do not mutate canonical JSON Schemas to mimic UI clicks. See [ADR-004](../decisions/ADR-004-INPUT-FIRST.md) and [revised Phase 2 handoff](../testing/PHASE2_REVISED_HANDOFF.md). Existing TLS test failure remains documented.
+
 # AirDesk API / Protocol Reference v0.1 — Contract-first
 
 **Status: private emulator-first development API, not a production remote desktop.** Phase 1 is a local diagnostic WebSocket for a read-only cursor. Phase 2 adds a separate mutually authenticated host/session and Mock input path against the existing schemas. Actual native input remains unavailable until independently verified vehicle safety; video is deferred. Implementation limits are in [PHASE2_IMPLEMENTATION.md](PHASE2_IMPLEMENTATION.md), with executed evidence in [PHASE2_HANDOFF](../testing/PHASE2_HANDOFF.md).
