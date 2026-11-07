@@ -1,3 +1,5 @@
+> **Direction update (ADR-004):** Future Pleos Stay+ Work integration should embed AirDesk-owned **gesture cursor + Compose target interactions + on-screen keyboard** rather than require Windows remote desktop, secure Host pairing or video. The legacy gateways/integration gates below are historical optional proposals; no Stay+ files or SDK permissions have been changed. Verify PLEOS vehicle safety and permissions before real Work input. See [revised Phase 2 handoff](../testing/PHASE2_REVISED_HANDOFF.md).
+
 # Integrating standalone AirDesk with Pleos Stay+ Work — NOT YET IMPLEMENTED
 
 Current separate repository: AirDesk. Existing destination: Pleos Stay+ Android Work feature, currently driven by Kotlin/Compose and a separate Realtime manual file transfer API.
