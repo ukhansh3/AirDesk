@@ -21,6 +21,16 @@ Scope: implements ADR-004 within AirDesk-owned Compose UI. No shared wire-schema
 
 ## Local target and focus boundary
 
+### User screenshot correction (2026-11-07)
+
+The user showed that the small portrait layout squeezed the editor down to its header and hid desktop
+keys behind paging. The current layout reserves an editable body, exposes explicit editor selection/
+input-start actions and an empty-field hint, and scales the complete keyboard plus side mouse controls
+into one view. This explicit user preference supersedes the previous narrow-screen keyboard pan design.
+Scaled keys can be smaller than the original touch-target design size; readability and actual PLEOS
+rendering remain manual checks. Ten-finger midair recognition is a separate, unimplemented requirement,
+not something satisfied by this layout correction or the existing Pinch cursor.
+
 Register stable IDs, measured bounds and explicit callbacks only inside the isolated DEMO composable.
 Normalized camera positions map to its actual measured viewport including the keyboard dock, excluding
 system insets and outer navigation. Use one Compose root coordinate system, never fixed screen pixels.

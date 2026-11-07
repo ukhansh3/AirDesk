@@ -2,6 +2,8 @@
 
 Date: 2026-11-07
 Status: **IMPLEMENTED (code) + AUTOMATED PASS; actual PLEOS UI/gesture/IME NOT_RUN; operational vehicle input BLOCKED**.
+This status covers the existing app-local touch/single-index-Pinch DEMO only. The newly clarified
+**two-hand, ten-finger midair typing** requirement is **NOT IMPLEMENTED**; see AIR_TYPING_PROPOSAL.md.
 Base: `dev` `f8a3374fe109cd72e54ecb6cda364ec8dfc932b0`. This handoff records revised input-first
 work separately from the historical remote-Host Phase 2.
 
@@ -48,21 +50,25 @@ Gesture cursor operates app-owned actionable targets (single click, drag, scroll
 
 | Group | Current result | Scope and limits |
 | --- | --- | --- |
-| Phase 1 Python regression | AUTOMATED PASS, 50 tests | Final ordered harness stage 6.488 seconds; no failures/skips. Fake camera and isolated loopback only. |
-| Canonical wire fixtures | AUTOMATED PASS, 5 tests / 17 fixtures | Final stage 0.408 seconds. Existing schemas and strict parsing; not authority to dispatch UI or OS input. |
+| Phase 1 Python regression | AUTOMATED PASS, 50 tests | Latest ordered harness stage 6.534 seconds; no failures/skips. Fake camera and isolated loopback only. |
+| Canonical wire fixtures | AUTOMATED PASS, 5 tests / 17 fixtures | Latest stage 0.475 seconds. Existing schemas and strict parsing; not authority to dispatch UI or OS input. |
 | Revised router/delivery/integration | AUTOMATED PASS, 41 JVM tests | Router 30 + diagnostic delivery 5 + cross-component callback integration 6. No rendered-device UI test. |
 | Desktop keyboard/composer/editor | AUTOMATED PASS, 22 JVM tests | Composer 7 + controller/layout/editor 15. Supported local Korean model, not proof of native PLEOS IME equivalence. |
-| Complete Android JVM suite | AUTOMATED PASS, 102 tests / 13 suites | Exact final JUnit XML: 0 failures, 0 errors, 0 skipped. Includes 39 preserved existing tests and 63 revised tests. |
-| Android `assembleDebug` | AUTOMATED PASS | Combined JVM/build stage 58.805 seconds. Actual rendering/selection/IME still manual. |
+| Desktop fit/editor geometry | AUTOMATED PASS, 10 JVM tests | Whole keyboard and side mouse fit/no overlap; portrait/landscape, editor body reservation, font scaling. Not a rendered-device test. |
+| Complete Android JVM suite | AUTOMATED PASS, 112 tests / 14 suites | Exact latest JUnit XML: 0 failures, 0 errors, 0 skipped. Includes 39 preserved existing tests, 63 revised tests and 10 layout tests. |
+| Android `assembleDebug` | AUTOMATED PASS | Combined latest JVM/build stage 47.531 seconds. Actual rendering/selection/IME still manual. |
 | Actual PLEOS screen/touch/gesture/IME | NOT_RUN | User runs the emulator; no GUI/camera/emulator is launched by the automated harness. |
 | Official parked/UX/camera capability | BLOCKED / NOT_VERIFIED | Default UNKNOWN cannot enable operational Work input. |
 | Historical Windows Host TLS | Unchanged historical evidence | Not part of the revised required path. The old failure is not a revised Phase 2 pass. |
 
 The final ordered `verify-input-first.ps1` run exited **0**. The report is
 `out/input-first-verification/verification.json`, generated 2026-11-07; test totals were independently
-recomputed from all JUnit XML. Its Android suite counts are 7+6+15+5+7+30+5+6+6+4+9+1+1=102.
+recomputed from all JUnit XML. Its Android suite counts are 7+6+15+5+7+30+5+6+6+4+9+1+1+10=112.
 An earlier 97-test JVM run had four mode-related failures. The mode handling was fixed and regression
-coverage retained/extended; tests were not removed or ignored to obtain the final 102-test pass.
+coverage retained/extended; tests were not removed or ignored to obtain the earlier 102-test pass.
+The subsequent user screenshot exposed a real portrait layout failure (collapsed editor and paged keys).
+The corrected layout adds 10 regression tests for a latest 112-test pass. The corrected rendered layout
+still needs user verification; the screenshot is failure evidence, not a successful UI test.
 
 No WPF/Windows CNG/mTLS or native-input test is required or executed by this revised path. Existing
 Windows source/tests, ADR-003 and historical PHASE2_HANDOFF remain preserved. A successful revised
@@ -89,9 +95,12 @@ harness does not change any old TLS failure to PASS.
 - The target registry uses measured/clipped bounds and current enabled metadata. Help/context menus
   occlude underlying targets. Selection uses a local app text toolbar rather than granting the cursor
   permission to operate Android popups. Actual touch-selection handles/toolbar behavior remains manual.
-- Narrow/short windows keep desktop key sizing and expose horizontal keyboard pan plus vertical pan
-  controls rather than replacing the layout with a phone keypad. Initial clipping/reachability and
-  remaining workspace size must be checked on the actual PLEOS display.
+- The complete 1120x360 design keyboard and side mouse controls scale together to fit one rectangle,
+  without keyboard pan controls. The user explicitly prefers all keys visible even when small.
+  Measured hit targets scale with rendering. Compact windows show one selected editor, reserve its
+  editable body and provide explicit input-start buttons and a placeholder. Wide windows can also
+  show the second editor and drag/scroll examples. Extremely short windows use explicit workspace
+  overflow rather than silently collapsing the input. Actual readability/focus/rendering remains manual.
 
 ### Run the revised harness
 
@@ -126,7 +135,7 @@ must be checked against the completed app before this checklist is marked execut
 1. Open `android-client/` in Android Studio, sync, build and run AirDesk on the user's PLEOS emulator. The optional Windows Host and pairing/mTLS are not prerequisites for this local workspace.
 2. In the separate PC Phase 1 camera panel (`Run-AirDesk.cmd`), select the intended webcam/model and start the local diagnostic stream. Original camera frames remain on the PC. Use the existing local debug token/settings; do not start the optional Windows Host.
 3. A debug build opens **데스크톱 DEMO** by default. Press **카메라 연결**, wait for diagnostic authentication, then explicitly press **손동작 켜기**. Connection alone does not enable target actions; repeat the explicit enable after reconnect. Check that operational Work remains locked with safety UNKNOWN. Verify measured app content bounds and system insets; the cursor must not control system bars or other apps.
-4. Check the **desktop keyboard dock**: recognizable QWERTY rows, number/symbol row, Esc/Tab/Caps, Shift/Ctrl/Alt, Space/Enter/Backspace/Delete, arrows/navigation and visible F1–F12. F1 should open help, while F2–F12 remain disabled. Test **키보드 접기/키보드 펼치기**, refocus the same editor by touch, and confirm keys become eligible again. On small widths use **◀ 키보드/키보드 ▶**; on short heights use **키보드 ↑/키보드 ↓** to reach all rows. Resize/rotate while preserving usable workspace and reachable supported keys.
+4. Select **메모 입력** or the editor's **입력 시작** button. The empty editor must show **여기에 입력됩니다** and retain a usable body. Press **한 / 영** for English, then click the screen's A key: the editor should show `a`. This touch test needs no camera. Confirm the entire PC keyboard and side mouse controls are visible together without keyboard paging, including F12/Backspace/Enter/arrows at the right edge and modifiers/Space at the bottom. F1 opens help; F2–F12 stay disabled. Test keyboard hide/show and refocus. Resize/rotate; compact screens switch one visible editor using **메모 입력/작업 문서**, while larger layouts may show examples beside the editors. Small scaled keys are a user-approved display tradeoff, not a large-touch-target claim.
 5. With touch first, activate a local button, focus each editor, drag an eligible object and scroll a local list. Context actions must appear in an AirDesk-owned menu. Confirm that drawing or hovering the cursor alone performs no action.
 6. With the camera, hold Pinch for at least 80 ms and release without moving more than the click slop. One recognized release produces one action. Rapid bounce/replayed hints, releasing outside the captured target and losing the hand must not cause phantom clicks.
 7. Drag an eligible object using the existing drag state; release to finish. Remove the hand while dragging, disconnect the stream and leave the app separately. Each case must cancel capture and prevent a later unintended click or resumed drag.

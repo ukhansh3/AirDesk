@@ -4,14 +4,21 @@ Implementation: `DesktopKeyboardDock`, `DesktopKeyboardController`, `DesktopHang
 The user explicitly approved the app-rendered full PC keyboard and tested two-set Hangul strategy;
 see ADR-005 and PHASE2_REVISED_HANDOFF for exact evidence. Actual PLEOS rendering/IME behavior remains NOT_RUN.
 
-The dock keeps all desktop key groups, F1 help and disabled F2–F12. Narrow screens pan with registered
-keyboard arrow controls; short screens have vertical pan controls. No key auto-repeat is implemented.
+The dock keeps all desktop key groups, F1 help and disabled F2–F12. Per the user's screenshot feedback,
+the entire keyboard and side mouse controls now scale together into one allocated rectangle, without
+keyboard paging. Small displays intentionally have smaller visible keys. No key auto-repeat is implemented.
 Both editors use Enter as newline; Tab/Shift+Tab changes editor focus. Page keys move eight logical
 newline rows, not measured visual pages. Undo/redo uses bounded per-edit committed snapshots.
 The supported Compose text-input interceptor suppresses the phone IME in DEMO editors; native
 selection callbacks and TextFieldValue are synchronized with the approved local composer. No system IME is installed.
 
 ## Product clarification — PC-style full keyboard (required; 2026-11-07)
+
+Latest user clarification: the intended camera input is **both hands / all ten fingers tapping in midair**,
+in a slightly curled, forward-held posture viewed from slightly above the front. The full keyboard and
+side mouse should be visible together as feedback. This recognition mode is **NOT IMPLEMENTED**;
+the current camera mode remains one index cursor with Pinch selection. See the separate
+[AIR typing proposal](AIR_TYPING_PROPOSAL.md), which awaits approval of the new classifier/profile design.
 
 **This is NOT a mobile phone keypad or a compact chat keyboard.** The intended experience is a **desktop-PC-style full QWERTY keyboard rendered on the PLEOS Work display**, operable without a physical keyboard. The keyboard must use a recognizably desktop-like multi-row arrangement, with keys clearly labeled and usable via both touch and AirDesk's gesture cursor. Do not satisfy this requirement merely by displaying the standard phone IME.
 

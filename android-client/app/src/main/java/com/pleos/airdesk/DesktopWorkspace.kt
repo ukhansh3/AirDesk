@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -111,7 +112,8 @@ private fun Modifier.desktopTarget(
 private fun DeskButton(label: String, modifier: Modifier, selected: Boolean = false, enabled: Boolean = true) {
     Box(modifier.heightIn(min = 44.dp).background(if (selected) Color(0xFF624B8F) else Color(0xFF233B57),
         RoundedCornerShape(6.dp)).padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
-        Text(label, color = if (enabled) Color.White else Color(0xFF71859D), fontSize = 13.sp)
+        Text(label, color = if (enabled) Color.White else Color(0xFF71859D), fontSize = 13.sp,
+            lineHeight = 18.sp, maxLines = 1)
     }
 }
 
@@ -127,7 +129,12 @@ fun DesktopWorkspace(
     val focusManager = LocalFocusManager.current
     val systemKeyboard = LocalSoftwareKeyboardController.current
     val coroutineScope = rememberCoroutineScope()
-    val keyboardVertical = rememberScrollState()
+    val workspaceScroll = rememberScrollState()
+    val toolbarScroll = rememberScrollState()
+    var activeEditorId by remember { mutableStateOf("note") }
+    var focusRequestNumber by remember { mutableStateOf(0) }
+    var chromeHeightPx by remember { mutableStateOf(0) }
+    var footerHeightPx by remember { mutableStateOf(0) }
     var showHelp by remember { mutableStateOf(false) }
     var contextEditor by remember { mutableStateOf<String?>(null) }
     var viewport by remember { mutableStateOf(UiBounds(0f, 0f, 0f, 0f)) }
@@ -140,7 +147,7 @@ fun DesktopWorkspace(
             onTab = { reverse ->
                 val index = editorIds.indexOf(keyboard.focusedEditorId).coerceAtLeast(0)
                 val next = editorIds[(index + if (reverse) editorIds.size - 1 else 1) % editorIds.size]
-                keyboard.focusEditor(next); focusRequests.getValue(next).requestFocus()
+                activeEditorId = next; keyboard.focusEditor(next); keyboard.show(); focusRequestNumber++
             },
             onEscape = { contextEditor = null; keyboard.hide(); focusManager.clearFocus() },
             onHelp = { showHelp = true })
@@ -200,7 +207,13 @@ fun DesktopWorkspace(
     }
     LaunchedEffect(router) { while (true) { delay(100); router.tick(SystemClock.elapsedRealtime()) } }
 
-    fun focus(id: String) { keyboard.focusEditor(id); keyboard.show(); focusRequests.getValue(id).requestFocus(); systemKeyboard?.hide() }
+    fun focus(id: String) {
+        activeEditorId = id; keyboard.focusEditor(id); keyboard.show(); focusRequestNumber++; systemKeyboard?.hide()
+    }
+    // A compact workspace composes one editor at a time. Acquire focus after the chosen editor exists.
+    LaunchedEffect(focusRequestNumber) {
+        if (focusRequestNumber > 0 && foreground) focusRequests.getValue(activeEditorId).requestFocus()
+    }
     fun openContext(id: String) { focus(id); contextEditor = id }
     fun shortcut(code: String) {
         when (code) {
@@ -216,73 +229,97 @@ fun DesktopWorkspace(
         val b = it.boundsInRoot(); val bounds = UiBounds(b.left, b.top, b.right, b.bottom)
         viewport = bounds; router.setViewport(bounds, density.density)
     }) {
-        val wide = maxWidth >= 780.dp
-        val keyboardBudget = (maxHeight * .45f).coerceAtLeast(144.dp).coerceAtMost(390.dp)
-        Column(Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
-                Text("AirDesk DESK", color = DeskAccent, fontSize = 22.sp)
-                Text("DEMO · 차량 UNKNOWN · 운영 Work 잠금", color = Color(0xFFFFCB7D), fontSize = 12.sp)
-            }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                DeskButton(if (gestureUi.enabled) "손동작 ON" else "손동작 켜기",
-                    Modifier.desktopTarget(router, "toolbar.gestures", demoAllowed && diagnosticState.authorized, modeControl = true,
-                        hovered = gestureUi.hoveredId, onClick = { router.setDemoEnabled(!gestureUi.enabled) }), gestureUi.enabled,
-                    enabled = demoAllowed && diagnosticState.authorized)
-                DeskButton("카메라 연결", Modifier.desktopTarget(router, "toolbar.connect", demoAllowed,
+        val chromeDp = with(density) { (chromeHeightPx + footerHeightPx).toDp().value } +
+            if (keyboard.visible) 21f else 14f
+        val plan = DesktopWorkspaceLayout.calculate(maxWidth.value, maxHeight.value,
+            chromeDp, keyboard.visible, density.fontScale)
+        val tools: @Composable () -> Unit = {
+            DeskButton(if (gestureUi.enabled) "손동작 ON" else "손동작 켜기",
+                Modifier.desktopTarget(router, "toolbar.gestures", demoAllowed && diagnosticState.authorized, modeControl = true,
+                    hovered = gestureUi.hoveredId, onClick = { router.setDemoEnabled(!gestureUi.enabled) }), gestureUi.enabled,
+                enabled = demoAllowed && diagnosticState.authorized)
+            DeskButton("카메라 연결", Modifier.desktopTarget(router, "toolbar.connect", demoAllowed,
+                modeControl = true, hovered = gestureUi.hoveredId,
+                onClick = { diagnostic.connect(BuildConfig.DEV_TOKEN) }))
+            DeskButton("연결 해제", Modifier.desktopTarget(router, "toolbar.disconnect", demoAllowed,
+                modeControl = true, hovered = gestureUi.hoveredId, onClick = { diagnostic.disconnect() }))
+            for ((mode, label) in listOf(GestureMouseMode.LEFT to "왼쪽 클릭", GestureMouseMode.RIGHT_ONCE to "우클릭 1회", GestureMouseMode.SCROLL to "스크롤 모드")) {
+                val selected = gestureUi.mode == mode
+                DeskButton(label, Modifier.desktopTarget(router, "toolbar.mode.${mode.name}", demoAllowed,
                     modeControl = true, hovered = gestureUi.hoveredId,
-                    onClick = { diagnostic.connect(BuildConfig.DEV_TOKEN) }))
-                DeskButton("연결 해제", Modifier.desktopTarget(router, "toolbar.disconnect", demoAllowed,
-                    modeControl = true, hovered = gestureUi.hoveredId, onClick = { diagnostic.disconnect() }))
-                for ((mode, label) in listOf(GestureMouseMode.LEFT to "왼쪽 클릭", GestureMouseMode.RIGHT_ONCE to "우클릭 1회", GestureMouseMode.SCROLL to "스크롤 모드")) {
-                    val selected = gestureUi.mode == mode
-                    DeskButton(label, Modifier.desktopTarget(router, "toolbar.mode.${mode.name}", demoAllowed,
-                        modeControl = true, hovered = gestureUi.hoveredId,
-                        onClick = { router.setMode(if (selected && mode != GestureMouseMode.LEFT) GestureMouseMode.LEFT else mode) }), selected)
+                    onClick = { router.setMode(if (selected && mode != GestureMouseMode.LEFT) GestureMouseMode.LEFT else mode) }), selected)
+            }
+            DeskButton(if (keyboard.visible) "키보드 접기" else "키보드 펼치기",
+                Modifier.desktopTarget(router, "toolbar.keyboard", demoAllowed, modeControl = true,
+                    hovered = gestureUi.hoveredId, onClick = {
+                        if (keyboard.visible) { keyboard.hide(); focusManager.clearFocus() } else keyboard.show()
+                    }))
+        }
+        Column(Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Column(Modifier.fillMaxWidth().onGloballyPositioned { chromeHeightPx = it.size.height },
+                verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("AirDesk DESK · DEMO", color = DeskAccent, fontSize = 20.sp, maxLines = 1)
+                if (plan.compactControls) {
+                    Row(Modifier.fillMaxWidth().horizontalScroll(toolbarScroll),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)) { tools() }
+                } else {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp)) { tools() }
                 }
-                DeskButton(if (keyboard.visible) "키보드 접기" else "키보드 펼치기",
-                    Modifier.desktopTarget(router, "toolbar.keyboard", demoAllowed, modeControl = true,
-                        hovered = gestureUi.hoveredId, onClick = {
-                            if (keyboard.visible) { keyboard.hide(); focusManager.clearFocus() } else keyboard.show()
-                        }))
-                if (keyboard.visible && keyboardVertical.maxValue > 0) {
-                    for ((direction, label) in listOf(-1 to "키보드 ↑", 1 to "키보드 ↓")) {
-                        val available = if (direction < 0) keyboardVertical.value > 0 else keyboardVertical.value < keyboardVertical.maxValue
-                        DeskButton(label, Modifier.desktopTarget(router, "toolbar.keyboardPan.$direction", demoAllowed && available,
-                            modeControl = true, hovered = gestureUi.hoveredId, onClick = {
-                                coroutineScope.launch { keyboardVertical.scrollBy(with(density) { (direction * 160).dp.toPx() }) }
-                            }), enabled = available)
+                Text("${diagnosticState.status} · ${gestureUi.status}", color = Color(0xFFAFC3DF), fontSize = 12.sp, maxLines = 1)
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
+                    for ((id, label) in listOf("note" to "메모 입력", "document" to "작업 문서")) {
+                        DeskButton(label, Modifier.desktopTarget(router, "editor.select.$id", demoAllowed,
+                            modeControl = true, hovered = gestureUi.hoveredId, onClick = { focus(id) }),
+                            selected = keyboard.focusedEditorId == id)
+                    }
+                    Text(if (keyboard.focusedEditorId == null) "← 눌러서 입력 시작" else "입력 중",
+                        color = DeskAccent, fontSize = 12.sp, maxLines = 1)
+                }
+            }
+            val bodyModifier = if (plan.needsWorkspaceScroll) Modifier.weight(1f).verticalScroll(workspaceScroll)
+                else Modifier.weight(1f)
+            Column(bodyModifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Row(Modifier.height(plan.editorAreaHeightDp.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.weight(if (plan.showExamples) 2f else 1f).fillMaxHeight(),
+                        verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        CompositionLocalProvider(LocalTextToolbar provides textToolbar) {
+                            InterceptPlatformTextInput(interceptor = { _, _ -> awaitCancellation() }) {
+                                val visibleEditors = if (plan.showSecondaryEditor) editorIds else listOf(activeEditorId)
+                                for (id in visibleEditors) DesktopEditor(if (id == "note") "메모" else "작업 문서", id,
+                                    keyboard, focusRequests.getValue(id), router, gestureUi.hoveredId, demoAllowed,
+                                    Modifier.weight(1f).heightIn(min = plan.editorMinHeightDp.dp),
+                                    { focus(id) }, { openContext(id) })
+                            }
+                        }
+                    }
+                    if (plan.showExamples) Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        DesktopDragBoard(router, gestureUi.hoveredId, demoAllowed, Modifier.weight(1f))
+                        DesktopTaskList(router, gestureUi.hoveredId, demoAllowed, Modifier.weight(1f))
                     }
                 }
+                if (keyboard.visible) DesktopKeyboardDock(keyboard,
+                    modifier = Modifier.fillMaxWidth().height(plan.keyboardHeightDp.dp),
+                    targetModifier = { modifier, id, enabled, action -> modifier.desktopTarget(router, id,
+                        enabled && demoAllowed, layer = 10, hovered = gestureUi.hoveredId, onClick = action) },
+                    hoveredTargetId = gestureUi.hoveredId,
+                    mousePanel = { panel ->
+                        Column(panel.background(DeskSurface, RoundedCornerShape(8.dp)).padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Text("마우스 · DEMO", color = DeskAccent, fontSize = 13.sp)
+                            for ((mode, label) in listOf(GestureMouseMode.LEFT to "왼쪽 클릭", GestureMouseMode.RIGHT_ONCE to "우클릭 1회", GestureMouseMode.SCROLL to "스크롤 모드")) {
+                                DeskButton(label, Modifier.fillMaxWidth().desktopTarget(router, "mouse.mode.${mode.name}",
+                                    demoAllowed, layer = 10, modeControl = true, hovered = gestureUi.hoveredId,
+                                    onClick = { router.setMode(mode) }), selected = gestureUi.mode == mode)
+                            }
+                            Text("현재: 검지 커서·Pinch\n열손가락 허공 타건: 준비 중", color = Color(0xFFAFC3DF), fontSize = 12.sp)
+                        }
+                    })
             }
-            Text("${diagnosticState.status} · ${gestureUi.status}", color = Color(0xFFAFC3DF), fontSize = 12.sp, maxLines = 2)
-            Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Column(Modifier.weight(if (wide) 2f else 1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    CompositionLocalProvider(LocalTextToolbar provides textToolbar) {
-                      InterceptPlatformTextInput(interceptor = { _, _ -> awaitCancellation() }) {
-                        DesktopEditor("작업 문서", "document", keyboard, focusRequests.getValue("document"), router,
-                            gestureUi.hoveredId, demoAllowed, Modifier.weight(1f), { focus("document") }, { openContext("document") })
-                        DesktopEditor("메모 · Tab으로 편집기 이동", "note", keyboard, focusRequests.getValue("note"), router,
-                            gestureUi.hoveredId, demoAllowed, Modifier.height(90.dp), { focus("note") }, { openContext("note") })
-                      }
-                    }
-                }
-                if (wide) Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    DesktopDragBoard(router, gestureUi.hoveredId, demoAllowed, Modifier.weight(1f))
-                    DesktopTaskList(router, gestureUi.hoveredId, demoAllowed, Modifier.weight(1f))
-                }
-            }
-            if (!wide) Row(Modifier.fillMaxWidth().height(120.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DesktopDragBoard(router, gestureUi.hoveredId, demoAllowed, Modifier.weight(1f).fillMaxHeight())
-                DesktopTaskList(router, gestureUi.hoveredId, demoAllowed, Modifier.weight(1f).fillMaxHeight())
-            }
-            if (keyboard.visible) DesktopKeyboardDock(keyboard,
-                modifier = Modifier.fillMaxWidth().heightIn(max = keyboardBudget).verticalScroll(keyboardVertical),
-                targetModifier = { modifier, id, enabled, action -> modifier.desktopTarget(router, id,
-                    enabled && demoAllowed, layer = 10, hovered = gestureUi.hoveredId, onClick = action) },
-                hoveredTargetId = gestureUi.hoveredId)
-            Text(if (demoAllowed) "앱 내부 DEMO만 조작 · F1 도움말 · 입력 내용/키 기록 저장 없음"
-                else "입력 잠금 · DEBUG 빌드와 전경 화면에서만 DEMO를 사용할 수 있습니다", color = Color(0xFF8EA9CA), fontSize = 11.sp)
+            Text(if (demoAllowed) "앱 내부 DEMO · 차량 UNKNOWN / 운영 잠금 · 허공 열손가락 타건 미구현"
+                else "입력 잠금 · DEBUG 빌드와 전경 화면에서만 DEMO를 사용할 수 있습니다",
+                modifier = Modifier.fillMaxWidth().onGloballyPositioned { footerHeightPx = it.size.height },
+                color = Color(0xFF8EA9CA), fontSize = 11.sp, maxLines = 2)
         }
         contextEditor?.let { id ->
             Surface(Modifier.align(Alignment.TopEnd).padding(top = 95.dp, end = 16.dp).width(220.dp),
@@ -340,14 +377,23 @@ private fun DesktopEditor(
     Column(modifier.background(DeskSurface, RoundedCornerShape(9.dp)).border(1.dp,
         if (keyboard.focusedEditorId == id) DeskAccent else DeskBorder, RoundedCornerShape(9.dp)).padding(10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(title, color = DeskAccent, fontSize = 13.sp)
+            Text(title, color = DeskAccent, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 1)
+            DeskButton("입력 시작", Modifier.desktopTarget(router, "editor.$id.focus", enabled, layer = 4,
+                hovered = hovered, onClick = onFocus))
             DeskButton("메뉴", Modifier.desktopTarget(router, "editor.$id.menu", enabled, layer = 4,
                 hovered = hovered, onClick = onContext))
         }
         BasicTextField(value = keyboard.value(id), onValueChange = { keyboard.updateEditorValue(id, it) }, enabled = enabled,
             textStyle = TextStyle(color = Color(0xFFE7EEFC), fontSize = 16.sp, fontFamily = FontFamily.Monospace),
             cursorBrush = SolidColor(DeskAccent), onTextLayout = { textLayout = it },
-            modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 8.dp).verticalScroll(scroll).focusRequester(requester)
+            decorationBox = { inner ->
+                Box(Modifier.fillMaxSize()) {
+                    if (keyboard.value(id).text.isEmpty()) Text("여기에 입력됩니다. 입력 시작 → 화면의 키를 눌러 보세요.",
+                        color = Color(0xFF8EA9CA), fontSize = 14.sp)
+                    inner()
+                }
+            },
+            modifier = Modifier.weight(1f).fillMaxWidth().heightIn(min = 72.dp).padding(top = 8.dp).verticalScroll(scroll).focusRequester(requester)
                 .onFocusChanged { if (it.isFocused) keyboard.focusEditor(id) }
                 .onGloballyPositioned { val b = it.boundsInRoot(); textBounds = UiBounds(b.left, b.top, b.right, b.bottom) }
                 .desktopTarget(router, "editor.$id", enabled, hovered = hovered, touchClick = false,

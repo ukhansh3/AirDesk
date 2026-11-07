@@ -2,22 +2,11 @@ package com.pleos.airdesk
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
@@ -27,10 +16,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.launch
 
 data class DesktopKeySpec(val code: String, val label: String, val units: Float = 1f)
 
@@ -66,58 +55,31 @@ fun DesktopKeyboardDock(
     modifier: Modifier = Modifier,
     targetModifier: (Modifier, String, Boolean, () -> Unit) -> Modifier,
     hoveredTargetId: String? = null,
+    mousePanel: @Composable (Modifier) -> Unit = { InactiveMousePanel(it) },
 ) {
     if (!controller.visible) return
-    BoxWithConstraints(modifier.background(Color(0xFF12223B), RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)).padding(8.dp)) {
-        val scroll = rememberScrollState()
-        val scope = rememberCoroutineScope()
-        val pagePixels = with(LocalDensity.current) { maxWidth.toPx() * .75f }.toInt().coerceAtLeast(1)
-        val narrow = maxWidth < 960.dp
-        val keyboardWidth = maxOf(maxWidth, 960.dp)
-        Column {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(if (narrow) 4.dp else 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (narrow) {
-                    Text("PC 키보드 · DEMO\n${if (controller.language == DesktopLanguage.KOREAN) "한글" else "English"} · F1 도움말", modifier = Modifier.weight(1f),
-                        color = Color(0xFFC7BCFF), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    PanButton("keyboard.pan.left", "◀ 키보드", scroll.value > 0, targetModifier, hoveredTargetId) {
-                        scope.launch { scroll.animateScrollTo((scroll.value - pagePixels).coerceAtLeast(0)) }
-                    }
-                    PanButton("keyboard.pan.right", "키보드 ▶", scroll.value < scroll.maxValue, targetModifier, hoveredTargetId) {
-                        scope.launch { scroll.animateScrollTo((scroll.value + pagePixels).coerceAtMost(scroll.maxValue)) }
-                    }
-                } else {
-                    Text("DESKTOP KEYBOARD · DEMO", color = Color(0xFFC7BCFF), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    Text(if (controller.language == DesktopLanguage.KOREAN) "한글 두벌식" else "English", color = Color(0xFF8DE0B2), fontSize = 12.sp)
-                    Text("F1 도움말 · F2–F12 미지원 · 앱 내부 단축키", color = Color(0xFFA2B4CF), fontSize = 12.sp)
-                }
-            }
-            val navWidth = 164.dp
-            val unit = (keyboardWidth - navWidth - 12.dp) / 15f
-            Column(Modifier.padding(top = 6.dp).horizontalScroll(scroll).width(keyboardWidth), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    DesktopKeyboardLayout.functionRow.forEach { key -> KeyCap(key, unit, controller, targetModifier, hoveredTargetId) }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        DesktopKeyboardLayout.mainRows.forEach { row ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                row.forEach { key -> KeyCap(key, unit, controller, targetModifier, hoveredTargetId) }
-                            }
+    BoxWithConstraints(modifier.fillMaxWidth().background(Color(0xFF12223B), RoundedCornerShape(12.dp))) {
+        val baseDensity = LocalDensity.current
+        val availableHeight = if (maxHeight.value.isFinite()) maxHeight.value else
+            maxWidth.value * DesktopKeyboardGeometry.HEIGHT / DesktopKeyboardGeometry.WIDTH
+        if (maxWidth.value > 0f && availableHeight > 0f) {
+            val fit = DesktopKeyboardGeometry.fit(maxWidth.value, availableHeight)
+            Box(Modifier.size(fit.width.dp, fit.height.dp).align(Alignment.Center)) {
+                // Fit the complete desktop surface in the allocated rectangle. Density scaling
+                // also scales measured targets; no graphics-only transform or hidden paging.
+                CompositionLocalProvider(LocalDensity provides Density(baseDensity.density * fit.scale, fontScale = 1f)) {
+                    Box(Modifier.requiredSize(DesktopKeyboardGeometry.WIDTH.dp, DesktopKeyboardGeometry.HEIGHT.dp)) {
+                        Text("PC 키보드 · DEMO  |  ${if (controller.language == DesktopLanguage.KOREAN) "한글 두벌식" else "English"}  |  F1 도움말 · F2–F12 미지원",
+                            modifier = Modifier.offset(8.dp, 8.dp).width(952.dp).height(28.dp), color = Color(0xFFC7BCFF),
+                            fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Clip)
+                        for (placement in DesktopKeyboardGeometry.keys) {
+                            KeyCap(placement.key,
+                                Modifier.offset(placement.bounds.left.dp, placement.bounds.top.dp)
+                                    .size(placement.bounds.width.dp, placement.bounds.height.dp),
+                                controller, targetModifier, hoveredTargetId)
                         }
-                    }
-                    Column(Modifier.width(navWidth), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        DesktopKeyboardLayout.navigationRows.take(2).forEach { row ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                row.forEach { key -> KeyCap(key, (navWidth + 4.dp) / 3f, controller, targetModifier, hoveredTargetId) }
-                            }
-                        }
-                        Spacer(Modifier.height(48.dp))
-                        Row(Modifier.width(navWidth), horizontalArrangement = Arrangement.Center) {
-                            KeyCap(DesktopKeyboardLayout.navigationRows[2].single(), (navWidth + 4.dp) / 3f, controller, targetModifier, hoveredTargetId)
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            DesktopKeyboardLayout.navigationRows[3].forEach { key -> KeyCap(key, (navWidth + 4.dp) / 3f, controller, targetModifier, hoveredTargetId) }
-                        }
+                        val mouse = DesktopKeyboardGeometry.mouseBounds
+                        mousePanel(Modifier.offset(mouse.left.dp, mouse.top.dp).size(mouse.width.dp, mouse.height.dp))
                     }
                 }
             }
@@ -126,22 +88,20 @@ fun DesktopKeyboardDock(
 }
 
 @Composable
-private fun PanButton(id: String, label: String, enabled: Boolean,
-    targetModifier: (Modifier, String, Boolean, () -> Unit) -> Modifier, hoveredTargetId: String?, onClick: () -> Unit,
-) {
-    val bg = if (hoveredTargetId == id && enabled) Color(0xFF405679) else Color(0xFF243956)
-    val base = Modifier.width(88.dp).height(48.dp).focusProperties { canFocus = false }
-        .background(bg, RoundedCornerShape(6.dp)).border(1.dp, Color(0xFF637796), RoundedCornerShape(6.dp))
-        .semantics { contentDescription = label + if (enabled) "" else " · 이동 끝" }
-    Box(targetModifier(base, id, enabled, onClick), contentAlignment = Alignment.Center) {
-        Text(label, color = if (enabled) Color.White else Color(0xFF718199), fontSize = 12.sp)
+private fun InactiveMousePanel(modifier: Modifier) {
+    Column(modifier.background(Color(0xFF1B2F49), RoundedCornerShape(9.dp))
+        .border(1.dp, Color(0xFF415977), RoundedCornerShape(9.dp)).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text("마우스 영역", color = Color(0xFFC7BCFF), fontSize = 15.sp)
+        Text("별도 입력 준비 중", color = Color(0xFFFFCB7D), fontSize = 12.sp)
+        Text("공중 타이핑과 전용 마우스 동작은 아직 연결되지 않았습니다.", color = Color(0xFFA2B4CF), fontSize = 12.sp)
     }
 }
 
 @Composable
 private fun KeyCap(
     key: DesktopKeySpec,
-    unit: Dp,
+    modifier: Modifier,
     controller: DesktopKeyboardController,
     targetModifier: (Modifier, String, Boolean, () -> Unit) -> Modifier,
     hoveredTargetId: String?,
@@ -153,12 +113,13 @@ private fun KeyCap(
     val secondary = if (controller.language == DesktopLanguage.KOREAN) DesktopHangulComposer.fromKey(key.code, controller.shift)?.toString() else null
     val bg = when { !enabled -> Color(0xFF1B2739); latched -> Color(0xFF604FA5); hovered -> Color(0xFF344C73); else -> Color(0xFF243956) }
     val outline = if (hovered || latched) Color(0xFFA99CEC) else Color(0xFF415977)
-    val base = Modifier.width(unit * key.units - 4.dp).height(48.dp).focusProperties { canFocus = false }
+    val base = modifier.focusProperties { canFocus = false }
         .background(bg, RoundedCornerShape(6.dp)).border(1.dp, outline, RoundedCornerShape(6.dp))
         .semantics { contentDescription = key.label + if (enabled) "" else " · 지원하지 않음" }
     Box(targetModifier(base, id, enabled) { controller.press(key.code) }, contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(key.label, color = if (enabled) Color(0xFFE3EBF9) else Color(0xFF6F8097), fontSize = if (key.label.length > 6) 11.sp else 13.sp, textAlign = TextAlign.Center)
+            Text(key.label, color = if (enabled) Color(0xFFE3EBF9) else Color(0xFF6F8097), fontSize = if (key.label.length > 6) 11.sp else 13.sp,
+                textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Clip)
             if (secondary != null) Text(secondary, color = Color(0xFFAEC6EC), fontSize = 10.sp)
         }
     }
