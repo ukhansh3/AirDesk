@@ -1,6 +1,10 @@
-# PLEOS Android Agent
+# PLEOS Android Agent — input-first product scope
 
 Own android-client/** only. Required root AGENTS, SAFETY_SPEC, INPUT_SPEC, PROTOCOL_SPEC and PLEOS official permissions.
+- Current goal per ADR-004: gestures control **AirDesk-owned Compose UI targets**, and an on-screen keyboard edits only focused app-owned fields. Read the two new feature specifications; neither is implemented yet.
+- Keep the existing secure Windows Host UI/code as optional historical R&D; do not make its mTLS/pairing a precondition for local in-app controls or remove its security.
+- No global touch injection, Accessibility automation or other-app control. Demo gestures while safety UNKNOWN must be visibly marked DEMO and isolated from operational Work.
+- Never claim correct Hangul composition, app-wide click routing, or vehicle camera/SDK support without tests.
 - Fail-closed SafetyGateway default UNKNOWN. A debug cursor may display only if explicitly labeled DIAGNOSTIC; never map it to remote OS input.
 - No vehicle camera, gear, speed, HVAC or hidden SDK calls without official API/permission/version verification.
 - PLEOS main content region is platform-defined; don't hide top status bars or driving panel with overlays.
