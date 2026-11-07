@@ -1,4 +1,4 @@
-> **Current acceptance target (ADR-004):** Test revised Phase 2 app-owned Compose click/drag/scroll, target hit testing, focused virtual keyboard (including Korean composition), lifecycle/tracking loss and strict separation between DEMO and operational vehicle safety. These are **NOT_RUN / not implemented** today. Historical PAIR/Windows INPUT/STREAM/E2E-01 gates below belong to optional remote-Host research, not mandatory new in-app Phase 2. See [revised handoff](PHASE2_REVISED_HANDOFF.md).
+> **Current acceptance target (ADR-004/005):** Revised Phase 2 app-owned Compose click/drag/scroll, target hit testing, focused desktop keyboard (including Korean composition), lifecycle/tracking loss and DEMO/operational safety separation have code and automated model-test evidence. Actual PLEOS rendering, touch, gesture ergonomics and IME checks remain **NOT_RUN**; operational vehicle input remains **BLOCKED**. Historical PAIR/Windows INPUT/STREAM/E2E-01 gates below belong to optional remote-Host research. See [revised handoff](PHASE2_REVISED_HANDOFF.md) for exact results and manual steps.
 
 # Test plan — initial harness vs actual hardware
 

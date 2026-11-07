@@ -5,7 +5,7 @@ Own android-client/** only.
 - Provide mouse-like left/right click, drag/drop and scroll on app-owned Compose targets; right click means a local contextual menu. Camera scroll/right-click mappings must be agreed, not guessed.
 - A standard Android IME may assist Korean composition but must not replace the visible desktop keyboard requirement.
 - Nonfunctional keys and shortcuts must be disabled/labeled accurately; never simulate global OS controls. Required root AGENTS, SAFETY_SPEC, INPUT_SPEC, PROTOCOL_SPEC and PLEOS official permissions.
-- Current goal per ADR-004: gestures control **AirDesk-owned Compose UI targets**, and an on-screen keyboard edits only focused app-owned fields. Read the two new feature specifications; neither is implemented yet.
+- Current goal per ADR-004: gestures control **AirDesk-owned Compose UI targets**, and a PC-style on-screen keyboard edits only focused app-owned fields. Read both feature specifications and ADR-005; implementation/test/manual status is in PHASE2_REVISED_HANDOFF.md.
 - Keep the existing secure Windows Host UI/code as optional historical R&D; do not make its mTLS/pairing a precondition for local in-app controls or remove its security.
 - No global touch injection, Accessibility automation or other-app control. Demo gestures while safety UNKNOWN must be visibly marked DEMO and isolated from operational Work.
 - Never claim correct Hangul composition, app-wide click routing, or vehicle camera/SDK support without tests.

@@ -33,6 +33,10 @@ class DiagnosticWebSocketClient(context: Context) {
     ).map { path -> context.assets.open(path).bufferedReader().use { JSONObject(it.readText()) } }))
     private val mutable = MutableStateFlow(DiagnosticUiState())
     val state: StateFlow<DiagnosticUiState> = mutable
+    private val gestureBus = DiagnosticGestureBus()
+
+    /** Observe accepted hints synchronously on Main. The returned callback unregisters; no event is replayed. */
+    fun observeGestures(observer: (DiagnosticGestureSignal) -> Unit): () -> Unit = gestureBus.observe(observer)
 
     @Volatile private var socket: WebSocket? = null
     @Volatile private var stoppedByUser = true
@@ -47,6 +51,8 @@ class DiagnosticWebSocketClient(context: Context) {
         val localUrl = uri?.scheme == "ws" && uri.host in setOf("10.0.2.2", "127.0.0.1", "localhost", "[::1]") &&
             uri.userInfo == null && uri.query == null && uri.fragment == null
         if (!BuildConfig.DEBUG || token.length !in 24..512 || !localUrl) {
+            disconnect(updateUi = false)
+            cancelGestures("diagnostic_configuration_unavailable")
             publish(reducer.reset("개발용 설정 없음 — 진단 연결 차단"))
             return
         }
@@ -61,6 +67,7 @@ class DiagnosticWebSocketClient(context: Context) {
         if (stoppedByUser) return
         reconnectJob?.cancel()
         publish(reducer.awaitingConnection(if (reconnectAttempt == 0) "진단 연결 중" else "진단 재연결 중"))
+        cancelGestures("diagnostic_connecting")
         val request = Request.Builder().url(BuildConfig.DIAGNOSTIC_WS_URL).build()
         socket = http.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -85,12 +92,14 @@ class DiagnosticWebSocketClient(context: Context) {
             override fun onMessage(webSocket: WebSocket, text: String) {
                 scope.launch {
                 if (socket !== webSocket || stoppedByUser) return@launch
-                val next = reducer.consume(text) ?: return@launch
+                val next = reducer.consume(text, SystemClock.elapsedRealtime()) ?: return@launch
                 handshakeWatchdog?.cancel()
                 if (next.authorized) reconnectAttempt = 0
                 publish(next)
+                reducer.lastAcceptedHint?.let { gestureBus.emit(DiagnosticGestureSignal.Hint(it)) }
                 if (next.cursorVisible) armTrackingWatchdog(next.lastSequence)
                 if (!next.authorized) {
+                    cancelGestures("diagnostic_revoked")
                     stoppedByUser = true
                     trackingWatchdog?.cancel()
                     socket = null
@@ -122,6 +131,7 @@ class DiagnosticWebSocketClient(context: Context) {
     }
 
     private fun scheduleReconnect() {
+        cancelGestures("diagnostic_disconnected")
         trackingWatchdog?.cancel()
         handshakeWatchdog?.cancel()
         val seconds = (1 shl reconnectAttempt.coerceAtMost(3)).toLong()
@@ -139,13 +149,14 @@ class DiagnosticWebSocketClient(context: Context) {
         handshakeWatchdog?.cancel()
         trackingWatchdog = scope.launch {
             delay(TRACKING_TIMEOUT_MS)
-            reducer.trackingTimedOut(sequence)?.let(::publish)
+            reducer.trackingTimedOut(sequence)?.let { publish(it); cancelGestures("tracking_timeout") }
         }
     }
 
     fun disconnect() = disconnect(updateUi = true)
 
     private fun disconnect(updateUi: Boolean) {
+        cancelGestures("diagnostic_disconnected")
         stoppedByUser = true
         reconnectJob?.cancel()
         trackingWatchdog?.cancel()
@@ -167,6 +178,8 @@ class DiagnosticWebSocketClient(context: Context) {
     private fun publish(value: DiagnosticUiState) {
         mutable.value = value
     }
+
+    private fun cancelGestures(reason: String) = gestureBus.emit(DiagnosticGestureSignal.Cancel(reason))
 
     private companion object {
         const val TRACKING_TIMEOUT_MS = 750L

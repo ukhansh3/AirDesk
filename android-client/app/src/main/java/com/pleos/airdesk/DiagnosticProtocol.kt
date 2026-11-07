@@ -31,9 +31,12 @@ class DiagnosticMessageReducer(private val schema: DiagnosticSchema) {
     private var lastTimestampMs = -1L
     var state: DiagnosticUiState = DiagnosticUiState()
         private set
+    var lastAcceptedHint: ValidatedGestureHint? = null
+        private set
 
     fun reset(status: String = "연결 안 됨"): DiagnosticUiState {
         lastTimestampMs = -1L
+        lastAcceptedHint = null
         state = DiagnosticUiState(status = status)
         return state
     }
@@ -41,6 +44,7 @@ class DiagnosticMessageReducer(private val schema: DiagnosticSchema) {
     fun awaitingConnection(status: String): DiagnosticUiState = reset(status)
 
     fun consume(text: String, nowMs: Long = System.nanoTime() / 1_000_000): DiagnosticUiState? {
+        lastAcceptedHint = null
         if (text.toByteArray(Charsets.UTF_8).size > 8192) return null
         val envelope = parseEnvelope(text) ?: return null
         if (state.authorized) {
@@ -55,10 +59,17 @@ class DiagnosticMessageReducer(private val schema: DiagnosticSchema) {
         if (envelope.type == "auth.accepted") clockOffsetMs = nowMs - envelope.timestampMs
         lastTimestampMs = envelope.timestampMs
         state = next
+        if (envelope.type.startsWith("gesture.") || envelope.type == "tracking.lost") {
+            lastAcceptedHint = ValidatedGestureHint(envelope.type, envelope.sessionId, envelope.sequence,
+                envelope.timestampMs, nowMs, if (envelope.type == "tracking.lost") null else next.x,
+                if (envelope.type == "tracking.lost") null else next.y,
+                if (envelope.type == "tracking.lost") null else next.confidence)
+        }
         return next
     }
 
     fun trackingTimedOut(expectedSequence: Long): DiagnosticUiState? {
+        lastAcceptedHint = null
         if (!state.authorized || state.lastSequence != expectedSequence || !state.cursorVisible) return null
         state = state.copy(
             status = "DEMO 연결됨 · 손 추적 시간 초과",
@@ -148,7 +159,7 @@ class DiagnosticMessageReducer(private val schema: DiagnosticSchema) {
 
     private fun parseEnvelope(text: String): Envelope? {
         return try {
-        val json = JSONObject(text)
+        val json = StrictJson.objectValue(text)
         if (!schema.accepts(json)) return null
         if (json.keysSet() != setOf(
                 "protocolVersion", "type", "sessionId", "sequence", "timestampMs", "payload",

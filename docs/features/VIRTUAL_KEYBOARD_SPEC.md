@@ -1,4 +1,15 @@
-# AirDesk virtual keyboard — revised Phase 2 specification (NOT IMPLEMENTED)
+# AirDesk virtual keyboard — revised Phase 2 DEMO implementation
+
+Implementation: `DesktopKeyboardDock`, `DesktopKeyboardController`, `DesktopHangulComposer`.
+The user explicitly approved the app-rendered full PC keyboard and tested two-set Hangul strategy;
+see ADR-005 and PHASE2_REVISED_HANDOFF for exact evidence. Actual PLEOS rendering/IME behavior remains NOT_RUN.
+
+The dock keeps all desktop key groups, F1 help and disabled F2–F12. Narrow screens pan with registered
+keyboard arrow controls; short screens have vertical pan controls. No key auto-repeat is implemented.
+Both editors use Enter as newline; Tab/Shift+Tab changes editor focus. Page keys move eight logical
+newline rows, not measured visual pages. Undo/redo uses bounded per-edit committed snapshots.
+The supported Compose text-input interceptor suppresses the phone IME in DEMO editors; native
+selection callbacks and TextFieldValue are synchronized with the approved local composer. No system IME is installed.
 
 ## Product clarification — PC-style full keyboard (required; 2026-11-07)
 
@@ -36,9 +47,9 @@ An **on-screen** keyboard for **focused AirDesk-owned Compose text fields**, usa
 - KB-09: provide both direct touch and eligible gesture-cursor key selection; protect against repeated click/release.
 - KB-10: document whether platform-provided IME vs an app-rendered keyboard is selected and why. Confirm actual Korean composition and PLEOS keyboard behavior by manual testing.
 
-## Additional desktop-keyboard acceptance (not executed)
+## Additional desktop-keyboard acceptance (automated model tests; manual UI pending)
 
 A reviewer must see the full PC-style arrangement and key groups listed above, not a phone keypad. Validate modifier-chord semantics (Ctrl+A/C/V/X/Z where editor supports them), Esc/Tab, arrows, navigation, Delete/Backspace, F1–F12 disabled/handled states, show/hide docking, keyboard focus and gesture/touch parity. Document platform behavior for Korean IME composing regions rather than pretending a plain key append suffices.
 
-## Acceptance (not executed)
+## Acceptance (exact results in revised handoff)
 Unit/UI tests: Hangul composing, English case, symbols, enter/backspace, focus switch, cursor selection, duplicate gesture taps, empty field, background cancel, safe insets. Manual emulator keyboard/IME validation required before completion claims.

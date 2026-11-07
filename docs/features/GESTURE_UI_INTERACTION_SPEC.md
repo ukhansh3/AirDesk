@@ -1,10 +1,19 @@
-# Gesture-to-UI interaction — revised Phase 2 specification (NOT IMPLEMENTED)
+# Gesture-to-UI interaction — revised Phase 2 DEMO implementation
+
+`GestureUiRouter` dispatches only explicitly registered local callbacks. See ADR-005 for user-approved
+80ms/12dp/250ms defaults, Scroll mode + pinch-drag, and Right click once + next pinch-release.
+No camera classifier or wire schema was added. Strict accepted events reach the router without
+StateFlow conflation. Release confirmation waits for a fresh valid hand frame, canceling loss endings.
+Targets use measured root bounds, stable IDs, explicit parent ownership and overlay occlusion checks.
+Keyboard/mouse model tests and actual PLEOS rendering are separate; see PHASE2_REVISED_HANDOFF.
 
 ## Desktop-mouse interaction requirement (2026-11-07)
 
 The pointer is intended to **feel like a computer mouse within the AirDesk Work surface**, not merely mark the hand position. In addition to pointer movement, specify and visibly support **left click, right click/context action, drag/drop, scrolling, and focus selection** for eligible AirDesk-owned UI targets. Right click should open a *local app-owned contextual menu*; it must not invoke the Android global context menu or Windows OS input.
 
-Only pinch is currently defined in the Phase 1 gesture contract. **How to distinguish right-click and scroll gestures is not decided**. Agents must propose a mapping with usability/accidental-activation analysis and obtain user approval before changing the gesture contract or adding classifiers. Touch fallback controls for right click/scroll may be implemented in the demonstrator without inventing camera gestures.
+Only pinch/drag are defined in the Phase 1 contract. The user approved explicit on-screen Scroll and
+Right click once modes reusing these events, recorded in ADR-005. A new camera gesture/classifier
+still requires approval; current modes do not change the wire contract. Touch uses the same local actions.
 
 Keep the pointer visible and maintain click and drag feedback; suppress phantom clicks from tracking loss or gesture bounce. Target hit testing must be inside the measured Compose workspace, including keyboard dock and desktop-like task controls.
 
@@ -25,5 +34,5 @@ Convert Phase 1 validated *gesture hints* into actions on **AirDesk-owned Compos
 - GUI-12: a gesture-controlled keyboard key is an explicit target, with one activation per recognized click. Hover is not a click.
 - GUI-10: maintain event sequencing, target lifecycle ownership, no repeated action when re-entering screen.
 
-## Proposed acceptance (not executed)
+## Acceptance (automated model tests; actual PLEOS UI pending)
 Deterministic tests for coordinate transforms, click once, lost hand while dragging, scroll clamping, focus switch, unknown safety, reconnect, stale/replayed events, and mixed screen sizes. Then human tests on PLEOS emulator. Confirm gesture scroll mapping, screen target model and thresholds before implementing. Do not claim arbitrary Compose buttons become clickable merely by drawing a pointer.

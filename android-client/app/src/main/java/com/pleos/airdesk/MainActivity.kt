@@ -6,6 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,7 +21,10 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,22 +39,40 @@ import androidx.compose.ui.unit.sp
 
 class MainActivity : ComponentActivity() {
     private val diagnostic by lazy { DiagnosticWebSocketClient(applicationContext) }
-    private val secure by lazy { SecureClient(applicationContext) }
+    private val secureInstance = lazy { SecureClient(applicationContext) }
+    private val secure by secureInstance
+    private var appForeground by mutableStateOf(false)
+    private var appWindowFocused by mutableStateOf(false)
+    private var suspendWorkspace: (() -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             val state by diagnostic.state.collectAsState()
-            var phase2 by remember { mutableStateOf(false) }
-            Column(Modifier.fillMaxSize().background(Color(0xFF081628)).windowInsetsPadding(WindowInsets.safeDrawing)) {
-                Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { phase2 = false }) { Text("Phase 1 진단") }
-                    Button(onClick = { phase2 = true }) { Text("Phase 2 보안 연결") }
-                }
-                Box(Modifier.weight(1f)) {
-                    if (phase2) Phase2Screen(secure, state) { diagnostic.connect(BuildConfig.DEV_TOKEN) }
-                    else DiagnosticScreen(state, onConnect = { diagnostic.connect(BuildConfig.DEV_TOKEN) },
-                        onDisconnect = { diagnostic.disconnect() })
+            var screen by remember { mutableStateOf(0) }
+            LaunchedEffect(screen, appForeground) {
+                if (screen == 2) {
+                    secure.foreground(appForeground)
+                    secure.safetyChanged(UnavailableVehicleSafetyGateway().current)
+                } else if (secureInstance.isInitialized()) secure.foreground(false)
+            }
+            MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xFFC7BCFF),
+                background = Color(0xFF081628), surface = Color(0xFF162842))) {
+                Column(Modifier.fillMaxSize().background(Color(0xFF081628)).windowInsetsPadding(WindowInsets.safeDrawing)) {
+                    Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { screen = 0 }) { Text("데스크톱 DEMO") }
+                        Button(onClick = { screen = 1 }) { Text("Phase 1 진단") }
+                        Button(onClick = { screen = 2 }) { Text("기존 Host 연구") }
+                    }
+                    Box(Modifier.weight(1f)) {
+                        when (screen) {
+                            0 -> DesktopWorkspace(diagnostic, state, appForeground && appWindowFocused) { suspendWorkspace = it }
+                            1 -> DiagnosticScreen(state, onConnect = { diagnostic.connect(BuildConfig.DEV_TOKEN) },
+                                onDisconnect = { diagnostic.disconnect() })
+                            else -> Phase2Screen(secure, state) { diagnostic.connect(BuildConfig.DEV_TOKEN) }
+                        }
+                    }
                 }
             }
         }
@@ -57,18 +80,26 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        secure.foreground(true)
-        secure.safetyChanged(UnavailableVehicleSafetyGateway().current)
+        appForeground = true
+        appWindowFocused = hasWindowFocus()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (!hasFocus) suspendWorkspace?.invoke()
+        appWindowFocused = hasFocus
     }
 
     override fun onPause() {
-        secure.foreground(false)
+        suspendWorkspace?.invoke()
+        appForeground = false
+        if (secureInstance.isInitialized()) secure.foreground(false)
         diagnostic.disconnect()
         super.onPause()
     }
 
     override fun onDestroy() {
-        secure.close()
+        if (secureInstance.isInitialized()) secure.close()
         diagnostic.close()
         super.onDestroy()
     }

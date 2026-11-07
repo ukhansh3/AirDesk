@@ -2,7 +2,22 @@
 
 > **UX clarification (2026-11-07):** This is a **desktop-like PLEOS Work input surface** with a full PC-style QWERTY keyboard (function/modifier/navigation keys, supported local shortcuts) and mouse-style left/right click, drag and scroll. **Do not build a mobile phone keypad** as the primary keyboard. All actions remain scoped to AirDesk-owned Compose UI, not Windows or system-wide Android control. Details: [keyboard specification](docs/features/VIRTUAL_KEYBOARD_SPEC.md) and [mouse interaction specification](docs/features/GESTURE_UI_INTERACTION_SPEC.md).
 
-> **Current product direction (2026-11-07):** AirDesk aims to enable hands-free interaction **inside AirDesk-owned PLEOS/Android Compose work screens** with camera gesture cursor, click/drag/scroll and on-screen Korean/English keyboard. It is **not primarily a Windows remote-desktop product**. Revised Phase 2 is planned, NOT built. The PC webcam remains the development camera; in-vehicle camera and official parked/UX restrictions remain unverified. See [ADR-004](docs/decisions/ADR-004-INPUT-FIRST.md), [gesture UI spec](docs/features/GESTURE_UI_INTERACTION_SPEC.md), [virtual keyboard spec](docs/features/VIRTUAL_KEYBOARD_SPEC.md) and [revised Phase 2 handoff](docs/testing/PHASE2_REVISED_HANDOFF.md).
+> **Current product direction (2026-11-07):** Revised Phase 2 now has an isolated **desktop DEMO inside AirDesk-owned Compose UI**: an actionable cursor, local context menus, drag/drop, scrolling and a full docked PC keyboard with Korean/English editing. Production Work stays locked while official vehicle safety is UNKNOWN. Code/model tests and actual PLEOS validation are separate; see [revised handoff](docs/testing/PHASE2_REVISED_HANDOFF.md) and [ADR-005 implementation choices](docs/decisions/ADR-005-DESKTOP-DEMO-INPUT.md). The PC webcam remains the development camera; vehicle camera and official parked/UX capability remain unverified.
+
+## Use the desktop DEMO
+
+1. Start the existing PC camera panel with `Run-AirDesk.cmd` and select your camera/model.
+2. Open `android-client/` in Android Studio and run the debug `app` on your emulator.
+3. In the default **데스크톱 DEMO** screen, select **카메라 연결**, then explicitly **손동작 켜기** after connection.
+4. Pinch/release clicks registered targets; click confirmation waits for the next valid hand frame.
+   Use **우클릭 1회** for the next local context menu, **스크롤 모드** for pinch-drag scrolling,
+   and drag the work card into its drop area. Touch works through the same app actions.
+5. Select an editor and use the full PC keyboard. F1 opens help; F2–F12 are visibly disabled.
+   Narrow/short layouts have registered keyboard pan controls. Ctrl+A/C/V/X/Z are editor-local.
+
+No Windows Host, pairing or mTLS setup is required for this local DEMO. Text is not sent to the PC.
+Run `scripts/verify-input-first.ps1` for its automatic checks; the separate historical host harness
+retains its original failed evidence. Follow the revised handoff for manual PLEOS checks.
 
 > **Historical implementation preserved:** The Windows Host/mTLS/remote-input sections below describe prior optional research and existing code, not the required in-app product path. Its actual TLS integration failed; native Windows input is locked. Do not treat its automated tests as proof of revised Phase 2.
 

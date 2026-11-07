@@ -1,4 +1,4 @@
-> **Active product flow (ADR-004; planned):** developer PC webcam → local MediaPipe → gesture hints → emulator diagnostic cursor → **future** AirDesk-owned Compose UI target router (click/drag/scroll) and focused virtual keyboard. No global OS input. UNKNOWN vehicle safety permits labeled isolated DEMO previews, not operational Work input. Current Windows remote-control and video flows below are optional historical R&D, not the new Phase 2 dependencies.
+> **Active product flow (ADR-004/005; DEMO code implemented):** developer PC webcam → existing MediaPipe/WS hints → strict diagnostic reducer → ordered accepted-event callbacks → measured app-owned targets → local mouse actions and focused full PC keyboard. UI state snapshots are visual projections, not action queues. Keyboard text remains local. UNKNOWN safety permits the explicitly enabled isolated DEBUG DEMO, not operational Work. Actual PLEOS validation remains separate; Windows/video paths below are optional historical R&D.
 
 # AirDesk data flow
 

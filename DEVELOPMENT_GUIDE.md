@@ -1,4 +1,16 @@
-> **2026-11-07 scope update:** AirDesk's active development target is **app-owned PLEOS gesture UI and virtual keyboard**, not Windows remote control. See [ADR-004](docs/decisions/ADR-004-INPUT-FIRST.md) and [revised Phase 2 handoff](docs/testing/PHASE2_REVISED_HANDOFF.md). Existing Windows Host instructions are historical/optional; they are not required for in-app controls. The revised Phase 2 is not yet implemented.
+> **2026-11-07 scope update:** AirDesk's active target is a **PC-style desktop DEMO inside AirDesk-owned Compose UI**. Gesture target routing and a full docked keyboard are implemented; actual PLEOS/hardware validation remains separate. See [ADR-004](docs/decisions/ADR-004-INPUT-FIRST.md), [ADR-005](docs/decisions/ADR-005-DESKTOP-DEMO-INPUT.md) and [revised handoff](docs/testing/PHASE2_REVISED_HANDOFF.md). Windows Host instructions below are historical/optional and are not required for local controls.
+
+## Active revised Phase 2
+
+Reuse the Phase 1 `Run-AirDesk.cmd` camera panel and existing debug token in ignored local.properties.
+Run the debug Android app, open **데스크톱 DEMO**, connect the camera and explicitly enable gestures.
+Use the app's PC keyboard and registered work targets; all actions remain local to this DEMO.
+After reconnect/background, enable gestures again. Operational Work has no verified safety authority.
+
+The ordered headless harness is `scripts/verify-input-first.ps1`; it runs Python regression, shared
+contract fixtures, Android JVM tests and assembleDebug. It does not launch GUI/camera/emulator or
+run the historical Windows TLS/native path. Commands, actual counts and user checks are in the
+revised handoff. Keep the old optional host failures truthful.
 
 # AirDesk Development Guide v0.1
 
@@ -29,7 +41,7 @@ Later milestones: explicit Windows host authorization, remote input, streaming (
 G0 protocol + pure gesture tests, G1 real webcam, G2 emulator localhost connection, G3 authentic pairing + vehicle safety, G4 Windows input, G5 screen stream, G6 Pleos Stay+ Work adapter.
 Record measured performance; never invent FPS/latency. Main is the baseline; use dev/feature branches for implementation.
 
-## Phase 2
+## Historical optional remote-Host Phase 2
 
 Approved decisions: [ADR-003](docs/decisions/ADR-003-PHASE2-SECURE-CONTROL.md).
 Start the separate host with `Run-AirDeskHost.cmd`; open `android-client/` in Android Studio.

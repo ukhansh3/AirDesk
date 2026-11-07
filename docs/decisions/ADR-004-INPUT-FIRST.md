@@ -24,7 +24,7 @@ ADR-004 supersedes the **product priority** of the old remote-desktop roadmap, N
 
 ## Revised roadmap and acceptance
 Phase 1 (existing, user-tested): camera → MediaPipe → diagnostic cursor.
-Revised Phase 2 (PENDING): in-app cursor target mapping, stable click/drag/scroll, focused virtual keyboard, isolated demo workspace, tests and PLEOS emulator validation.
+Revised Phase 2: isolated in-app desktop DEMO, cursor target mapping, click/drag/scroll, focused full PC keyboard and model tests implemented under ADR-005; actual PLEOS emulator validation remains a separate NOT_RUN gate. Operational vehicle input stays blocked.
 Phase 3: ergonomics, Korean IME/gesture accuracy and official PLEOS camera/safety feasibility verification.
 Phase 4: independently reviewed Pleos Stay+ Work integration.
 
