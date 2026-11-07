@@ -15,6 +15,12 @@ Explicit user decisions > ADR-004 current product scope > root AGENTS.md > appro
 - integration-tests/** and docs/testing/**: integration/QA
 Do not modify another agent's area or shared schemas without coordination. Every PR reports feature IDs, tests, contract impact and unresolved risks.
 
+## Desktop-workspace interaction clarification
+- User requires **desktop-like full-size QWERTY on-screen keyboard**, NOT a mobile phone keypad. Required groups: function row, Ctrl/Alt/Shift, Esc/Tab, navigation and arrow keys, desktop shortcuts inside supported app-owned editors, plus Korean/English composition.
+- User requires **computer-mouse-like** cursor with left/right click, drag and scroll on registered app-owned targets. Never infer that pointer visualization or candidate messages are already working UI actions.
+- Do not invent camera gestures for right click or scroll; present options and request approval. Use explicit demo/touch fallback controls if needed.
+- Keep the keyboard dock/responsive Work workspace layout in scope. Do not fake unsupported F1–F12/global shortcuts. No Windows remote input or OS-wide Android event injection.
+
 ## Input-first implementation rules
 - Read ADR-004, docs/features/GESTURE_UI_INTERACTION_SPEC.md, docs/features/VIRTUAL_KEYBOARD_SPEC.md and docs/testing/PHASE2_REVISED_HANDOFF.md before new implementation.
 - No global Android taps, Accessibility automation, external-app event injection or Windows SendInput for revised Phase 2. Dispatch only registered app-owned Compose actions and focused text-edit operations.
