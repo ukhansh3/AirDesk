@@ -1,3 +1,5 @@
+> **Scope (ADR-004):** The INPUT-01..10 and input JSON schema below refer to the **optional historical Windows Host remote-input interface**, not the new AirDesk-owned Compose pointer/keyboard interactions. Keep these security rules for old code; do not require host pairing to operate the local app's own UI. New in-app behavior is specified in [GESTURE_UI_INTERACTION_SPEC.md](GESTURE_UI_INTERACTION_SPEC.md) and [VIRTUAL_KEYBOARD_SPEC.md](VIRTUAL_KEYBOARD_SPEC.md); it is not implemented yet.
+
 # Input feature policy — DRAFT, OS INPUT DISABLED
 
 Canonical payloads are in contracts/input/input-event.schema.json; see docs/api/API_REFERENCE.md for required fields and enums.
