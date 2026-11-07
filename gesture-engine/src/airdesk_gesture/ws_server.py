@@ -10,6 +10,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from time import monotonic
 from uuid import uuid4
+from typing import Callable, Iterator
+from .camera import CameraSample
 
 from .engine import GestureEngine
 from .synthetic import sample_frames
@@ -21,15 +23,27 @@ async def serve(
     *,
     device: int = 0,
     mirror: bool = True,
+    preview: bool = False,
+    select_device: bool = False,
+    max_devices: int = 6,
     host: str = "127.0.0.1",
     port: int = 8765,
+    dev_token: str | None = None,
+    frame_factory: Callable[[], Iterator[CameraSample]] | None = None,
+    on_status: Callable[[str], None] | None = None,
 ):
     try:
         from websockets.asyncio.server import serve as ws_serve
     except ImportError as exc:
         raise RuntimeError('Install websocket dependency: pip install -e ".[ws]"') from exc
 
-    token = os.environ.get("AIRDESK_DEV_TOKEN", "")
+    token = dev_token if dev_token is not None else os.environ.get("AIRDESK_DEV_TOKEN", "")
+    if dev_token is None and not token:
+        from .desktop_runtime import SetupError, read_app_token
+        try:
+            token = read_app_token(Path(__file__).resolve().parents[3])
+        except SetupError:
+            pass
     if not 24 <= len(token) <= 512:
         raise RuntimeError("Set fresh AIRDESK_DEV_TOKEN of at least 24 chars")
     if source == "camera" and not model:
@@ -38,6 +52,12 @@ async def serve(
         raise ValueError("Diagnostic server must remain loopback-only")
     if not 1 <= port <= 65535:
         raise ValueError("invalid port")
+    if (preview or select_device) and source != "camera":
+        raise ValueError("--preview and --select-camera require --source camera")
+    if select_device:
+        from .camera import select_camera
+        device = await asyncio.to_thread(select_camera, device, max_devices)
+        print(f"Selected camera {device}; connect the Android diagnostic client to start tracking")
 
     camera_lock = asyncio.Lock()
     from jsonschema import Draft202012Validator
@@ -58,11 +78,14 @@ async def serve(
     async def handler(ws):
         source_session = f"{source}-demo-{uuid4().hex}"
         owns_camera = False
+        accepted = False
         try:
             raw = await asyncio.wait_for(ws.recv(), timeout=5)
             _client_session, submitted = parse_debug_hello(raw)
             validators["control"].validate(json.loads(raw))
             if not hmac.compare_digest(submitted, token):
+                if on_status:
+                    on_status("rejected")
                 await send_event(ws, {
                     "protocolVersion":"0.1","type":"auth.rejected",
                     "sessionId":source_session,"sequence":0,
@@ -81,6 +104,9 @@ async def serve(
                 "protocolVersion":"0.1","type":"auth.accepted","sessionId":source_session,
                 "sequence":0,"timestampMs":int(monotonic()*1000),"payload":{"mode":"diagnostic_only"}
             })
+            accepted = True
+            if on_status:
+                on_status("connected")
             # sequence=0 was used by auth.accepted; gesture events continue at 1.
             engine = GestureEngine(session_id=source_session, initial_sequence=1)
             if source == "synthetic":
@@ -90,13 +116,14 @@ async def serve(
                     await asyncio.sleep(0.034)
             else:
                 from .camera import CameraError, landmark_frames
-                frames = landmark_frames(model, device, mirror=mirror)
+                frames = frame_factory() if frame_factory else landmark_frames(model, device, mirror=mirror, preview=preview)
                 worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="airdesk-camera")
                 loop = asyncio.get_running_loop()
                 closed = asyncio.create_task(ws.wait_closed())
                 # Do not allow StopIteration to cross asyncio Future boundaries.
                 def next_frame():
                     return next(frames, None)
+                camera_failed = False
                 try:
                     while True:
                         pending = loop.run_in_executor(worker, next_frame)
@@ -105,8 +132,17 @@ async def serve(
                             break
                         sample = pending.result()
                         if sample is None:
+                            for event in engine.end_tracking(int(monotonic() * 1000), "camera_disconnected"):
+                                await send_event(ws, event)
+                            await send_event(ws, {
+                                "protocolVersion": "0.1", "type": "session.closed",
+                                "sessionId": source_session, "sequence": engine.seq,
+                                "timestampMs": max(engine.last_timestamp, int(monotonic() * 1000)),
+                                "payload": {"reason": "ERROR" if camera_failed else "USER_REQUEST"},
+                            })
                             break
                         if sample.landmarks is None and sample.loss_reason != "hand_not_detected":
+                            camera_failed = True
                             events = engine.end_tracking(sample.timestamp_ms, sample.loss_reason)
                         else:
                             events = engine.process(
@@ -120,6 +156,12 @@ async def serve(
                 except CameraError as exc:
                     for event in engine.end_tracking(int(monotonic() * 1000), exc.reason):
                         await send_event(ws, event)
+                    await send_event(ws, {
+                        "protocolVersion": "0.1", "type": "session.closed",
+                        "sessionId": source_session, "sequence": engine.seq,
+                        "timestampMs": max(engine.last_timestamp, int(monotonic() * 1000)),
+                        "payload": {"reason": "ERROR"},
+                    })
                 finally:
                     closed.cancel()
                     await loop.run_in_executor(worker, frames.close)
@@ -132,12 +174,17 @@ async def serve(
         finally:
             if owns_camera:
                 camera_lock.release()
+            if accepted and on_status:
+                on_status("disconnected")
 
     async with ws_serve(
         handler, host, port, max_size=8192, max_queue=4,
         ping_interval=10, ping_timeout=10,
     ):
-        print(f"AirDesk local diagnostic {host}:{port} (no remote OS input)")
+        if on_status:
+            on_status("listening")
+        else:
+            print(f"AirDesk local diagnostic {host}:{port} (no remote OS input)")
         await asyncio.Future()
 
 def main():
@@ -146,12 +193,22 @@ def main():
     parser.add_argument("--model")
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--no-mirror", action="store_true")
+    parser.add_argument("--preview", action="store_true", help="Show local video and hand landmarks while sending events")
+    parser.add_argument("--select-camera", action="store_true", help="Choose a camera by viewing it before starting the server")
+    parser.add_argument("--max-devices", type=int, default=6, help="Camera picker scans indices 0 through N-1")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
-    asyncio.run(serve(
-        args.source, args.model, device=args.device,
-        mirror=not args.no_mirror, port=args.port,
-    ))
+    from .camera import CameraError, CameraSelectionCancelled
+    try:
+        asyncio.run(serve(
+            args.source, args.model, device=args.device,
+            mirror=not args.no_mirror, port=args.port, preview=args.preview,
+            select_device=args.select_camera, max_devices=args.max_devices,
+        ))
+    except (CameraError, CameraSelectionCancelled) as exc:
+        parser.exit(1, f"{exc}\n")
+    except KeyboardInterrupt:
+        pass
 
 if __name__ == "__main__":
     main()

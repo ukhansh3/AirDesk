@@ -19,7 +19,18 @@ def main():
     camera.add_argument("--preview", action="store_true")
     camera.add_argument("--no-mirror", action="store_true")
     camera.add_argument("--max-frames", type=int)
+    picker = sub.add_parser("select-camera", help="Preview cameras without a MediaPipe model")
+    picker.add_argument("--device", type=int, default=0)
+    picker.add_argument("--max-devices", type=int, default=6)
     args = parser.parse_args()
+    if args.mode == "select-camera":
+        from .camera import CameraError, CameraSelectionCancelled, select_camera
+        try:
+            device = select_camera(args.device, args.max_devices)
+        except (CameraError, CameraSelectionCancelled) as exc:
+            parser.exit(1, f"{exc}\n")
+        print(f"Selected camera index: {device}. Use --device {device} with the camera server.")
+        return
     engine = GestureEngine()
     if args.mode == "synthetic":
         frames = sample_frames(args.count)
