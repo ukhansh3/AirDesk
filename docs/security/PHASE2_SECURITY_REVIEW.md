@@ -89,7 +89,7 @@ path was found. This source review is not runtime certification.
 
 The final policy harness passed 22 cases; actual loopback TLS failed before application protocol with
 SEC_E_NO_CREDENTIALS, including a minimal public-certificate-only Python client/.NET server control.
-Negative TLS assertions are not credited without a positive handshake. Android 40 JVM tests and both
+Negative TLS assertions are not credited without a positive handshake. Android 39 JVM tests (final XML total) and both
 builds passed; actual Android Keystore, production Host CNG enrollment, PLEOS SDK and OS input remain
 unverified. The overall aggregate is FAILED, not a production release approval. Known late socket
 cleanup, failed revocation persistence, non-US physical key mapping and live evidence limitations are

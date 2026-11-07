@@ -26,7 +26,7 @@
 | Windows pairing/session/mock/native gate | 코드 구현 / 정책 테스트 PASSED | 22개 정책·계약 사례 통과. 실제 네트워크 mTLS는 아래 실패와 분리 |
 | Windows WPF 빌드 | PASSED | Release 빌드, 경고 0·오류 0; WPF 창은 실행하지 않음 |
 | Android pairing/session/touch/keyboard | 코드 구현 / JVM 테스트 PASSED | 공개 키 등록·승인 UI, touch/drag/scroll/text/modifier/gesture, receipt queue; 실제 UI는 미실행 |
-| Android JVM 테스트/assembleDebug | PASSED | 40개, 실패/오류 0; 기존 Phase 1 11개 포함. UI/Keystore 실기 실행 증명은 아님 |
+| Android JVM 테스트/assembleDebug | PASSED | 최종 JUnit XML 합계 39개, 실패/오류 0; 기존 Phase 1 11개 포함. UI/Keystore 실기 실행 증명은 아님 |
 | 실제 loopback WSS 양성 테스트 | FAILED | `0x8009030E / SEC_E_NO_CREDENTIALS`로 TLS handshake 실패 |
 | 실제 TLS 인증 거부 테스트 | NOT_RUN | 양성 TLS가 먼저 실패하여 거부 원인을 인증 정책으로 입증할 수 없음 |
 | 실제 WSS Host↔Android 상호 인증/승인 | NOT_RUN | 아래 사용자 수동 확인 필요; 컴파일·정책 사례로 대체하지 않음 |
@@ -37,7 +37,8 @@
 전체 하네스 종료 코드는 **1 (실패 포함)**이다. Windows 콘솔 원문 집계는
 `{"passed":22,"failed":2,"nativeCalls":0}`이며, 미통과 두 사례는 실제 TLS 양성 실패 1개와
 그 전제가 충족되지 않아 수행되지 않은 TLS 거부 그룹 1개다. 실패를 제거·우회하지 않았다.
-Android 40개 중 기존 Phase 1 테스트 11개를 유지한다. 17개 공통 wire fixture는 Python/C#/Kotlin에서 검사한다.
+Android 39개 중 기존 Phase 1 테스트 11개를 유지한다. 초기 모듈 보고의 40개는 최종 XML 재집계로 정정했다.
+JUnit suite별 개수는 7+5+6+6+4+9+1+1=39다. 17개 공통 wire fixture는 Python/C#/Kotlin에서 검사한다.
 
 ## TLS 실패 분석과 구현 한계
 
