@@ -23,6 +23,7 @@ Do not modify another agent's area or shared schemas without coordination. Every
 
 ## Input-first implementation rules
 - Latest user-approved experiment (2026-11-08): use **one PC RGB webcam** first and show a translucent green outline keyboard with English/Hangul labels in the local camera preview. Read ADR-007 and SPATIAL_AIR_KEYBOARD_DESIGN.md. The overlay is image-space reference only; fixed-world spatial press sensing and the approved future v0.3 mode-switching profile are not implemented by drawing it. Preserve current v0.1/v0.2 behavior and distinguish measured versus estimated results.
+- Camera-display follow-up: default to the proportional 87-key TKL reference in ADR-008. The user limited this update to camera display; it is not the v0.2 input hit map. Keep the legacy 81-key **기존 AIR 입력 정렬** view available; do not silently change Android/producer input coordinates to match the new reference.
 - Read ADR-004, docs/features/GESTURE_UI_INTERACTION_SPEC.md, docs/features/VIRTUAL_KEYBOARD_SPEC.md and docs/testing/PHASE2_REVISED_HANDOFF.md before new implementation.
 - No global Android taps, Accessibility automation, external-app event injection or Windows SendInput for revised Phase 2. Dispatch only registered app-owned Compose actions and focused text-edit operations.
 - The Phase 1 diagnostic WebSocket supplies *hints*, not trusted production input authority; explicitly label local interactive previews DEMO.

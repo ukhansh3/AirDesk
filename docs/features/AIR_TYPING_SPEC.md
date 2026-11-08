@@ -1,6 +1,6 @@
 # Experimental two-hand ten-finger AIR typing
 
-Status: existing v0.2 implementation plus implemented/automatically verified PC camera reference, 2026-11-08.
+Status: existing v0.2 input unchanged; physical-proportion TKL87 camera reference implemented/automatically verified, 2026-11-08.
 Actual webcam typing accuracy and fixed-world spatial sensing are NOT_VERIFIED.
 The user explicitly requested implementation after the calibrated-flex proposal and clarified the
 camera view and full-keyboard layout. This spec supersedes the draft proposal's pending status.
@@ -15,9 +15,12 @@ The current touch/single-Pinch profile remains available separately.
 ### Live PC camera reference (user-approved display update)
 
 The single-RGB-webcam research approach is approved first; depth/tracking hardware is only a future
-fallback if measured results are insufficient. The current display step composites a full green PC
-keyboard and side mouse outline on the live PC camera preview using the existing normalized v0.2
-image-space geometry. All 26 letter keys show English/two-set Hangul labels. Only line/text pixels
+fallback if measured results are insufficient. The current camera-only display update defaults to a
+green **ANSI TKL87 physical-proportion reference**, with an 18.75×7u reference casing, uniform scale, bottom-center
+placement, 6.25u Space and separate function/navigation/arrow clusters. It has no numpad or large
+mouse panel. **This TKL view is not the current v0.2 input map.** Select **기존 AIR 입력 정렬** to restore
+the old 81-key + mouse reference, independently scaled to the existing normalized input geometry.
+All 26 letter keys show English/two-set Hangul labels in either view. Only line/text pixels
 have opacity (default 40%; PC adjustment 15–80%); key/background interiors stay transparent. The PC
 checkbox defaults ON and the opacity control adjusts only the display layer.
 
@@ -26,12 +29,16 @@ landmarks, calibration/press thresholds, packets or Android editor behavior. No 
 transmitted. Pillow `>=10,<14` in the camera/all extras and the local Windows Malgun font provide
 Unicode text/RGBA composition; see [ADR-007](../decisions/ADR-007-SINGLE-WEBCAM-KEYBOARD-OVERLAY.md).
 No font file is bundled. Turning the layer off does not turn tracking or typing on/off.
+The low-level renderer retains its legacy-layout default for compatibility; the PC runtime explicitly
+chooses TKL87 by default. The selection is local display state, not a new protocol or key event.
+The TKL option is labeled **텐키리스 · 87키 비율**; see the camera-only scope in
+[ADR-008](../decisions/ADR-008-TKL-CAMERA-REFERENCE.md).
 The Run-AirDesk panel fits the complete image within its actual preview bounds (maximum 860×480)
 and shows quality/guard captions outside the image. Standalone OpenCV `--preview` is unchanged.
 After fixing a missing renderer/font, toggle OFF/ON to retry; opacity-only changes do not retry failure.
 
 This image overlay is not a free-space hologram or the future fixed-world-plane classifier. The
-existing absolute image-to-key mapping and flex/MCP press model remain until a separately tested
+existing 81-key absolute image-to-key mapping and flex/MCP press model remain until a separately tested
 spatial input implementation is approved and delivered. See
 [SPATIAL_AIR_KEYBOARD_DESIGN.md](SPATIAL_AIR_KEYBOARD_DESIGN.md).
 

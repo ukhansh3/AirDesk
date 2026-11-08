@@ -2,6 +2,12 @@
 
 ## Active revised Phase 2
 
+The PC camera display now defaults to **텐키리스 · 87키 비율**, a proportional TKL reference.
+For current Android AIR typing alignment, select **기존 AIR 입력 정렬** in the PC panel instead.
+Only camera display changes here; the app/producer input geometry remains unchanged. See
+[ADR-008](docs/decisions/ADR-008-TKL-CAMERA-REFERENCE.md). Restart the PC panel; no Android rebuild
+is required for this display change.
+
 The approved next experiment uses **one existing PC RGB webcam**. The camera panel shows a green
 outline keyboard with English/Korean labels over the live preview, with transparent key interiors.
 Use **카메라 키보드 표시** and **선 농도** to control it. This is a local image-space reference;

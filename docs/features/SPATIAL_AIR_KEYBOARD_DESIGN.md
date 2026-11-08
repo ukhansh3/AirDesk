@@ -1,6 +1,6 @@
 # Fixed-position spatial AIR keyboard — design boundary
 
-Updated: 2026-11-08. Status: **SINGLE-RGB-WEBCAM EXPERIMENT USER-APPROVED; PC CAMERA WIREFRAME IMPLEMENTED + AUTOMATED PASS; FIXED-WORLD PRESS SENSING NOT IMPLEMENTED/VERIFIED**.
+Updated: 2026-11-08. Status: **PHYSICAL-PROPORTION TKL87 CAMERA REFERENCE IMPLEMENTED + AUTOMATED PASS; TKL DISPLAY IS NOT CURRENT AIR INPUT MAPPING; FIXED-WORLD PRESS SENSING NOT IMPLEMENTED/VERIFIED**.
 
 ## Intended interaction
 
@@ -53,7 +53,8 @@ inferred from the current image landmarks.
 For the webcam study, establish a common coordinate frame and quantify drift, fingertip occlusion,
 stationary false presses, missed presses, adjacent-key errors and release behavior before claiming
 comfortable ten-finger typing. Start with the eight home keys and Space/Backspace as a measured
-future press experiment; the current visual overlay still contains all 81 keys. Retain the complete
+future press experiment; the default camera reference shows 87 TKL keys while the legacy input-aligned
+view remains available. Retain the complete
 keyboard UI and document the actual reach of other keys.
 Do not substitute elapsed timers or generated synthetic trajectories for human typing evidence.
 
@@ -63,9 +64,22 @@ The user explicitly requested a green wireframe keyboard over the live PC image,
 Hangul labels and clear key interiors. This is a local camera-composited reference, not a physical
 hologram, projector or measured fixed-world press classifier.
 
-- Reuse the existing v0.2 normalized image-space 1120×360 geometry: all 81 desktop keys and the side
-  mouse region. All 26 letter keys carry English and two-set Hangul labels. Keep F1–F12 and the
-  modifier/navigation groups visible; their existing supported/unsupported actions do not change.
+The camera panel now defaults to a **physical-proportion ANSI TKL87 visual reference**. Its casing
+is 18.75×7 units (approximately 2.68:1), with one uniform scale for both axes and bottom-center placement.
+These are chosen reference-casing dimensions, not measurements or certification of a keyboard product.
+Keep square 1u keys, physical modifier widths including 6.25u Space, separated function/navigation/
+arrow clusters, and no numpad or large MOUSE rectangle. All 26 letter keys keep English/Hangul labels.
+
+**TKL87 is DISPLAY REFERENCE ONLY and is not mapped to current v0.2 AIR input hit regions.** The
+dropdown's **기존 AIR 입력 정렬** option preserves the former 81-key + mouse layout and its independent
+axis scaling to v0.2 normalized 1120×360 image-space coordinates. Choose that view when comparing
+current fingertip input with displayed key regions. The Android keyboard and separate large estimate
+window remain on their existing 81-key geometry; selecting the camera reference changes neither.
+The TKL dropdown label is **텐키리스 · 87키 비율**. The layout and preservation decision is recorded
+in [ADR-008](../decisions/ADR-008-TKL-CAMERA-REFERENCE.md).
+
+- Keep F1–F12, top-row numbers, bilingual letters, modifiers and navigation/arrows visible in TKL87.
+  Additional physical-reference keycaps do not create new supported editor or OS actions.
 - Only green line/text pixels receive configurable opacity, default 0.4 (the PC slider spans 15–80%).
   Key/panel backgrounds have zero alpha, so the hands remain visible. There is no filled translucent keyboard plate.
 - Render after MediaPipe has consumed its input, only for the PC preview. The source landmarks,
@@ -84,7 +98,8 @@ If the optional dependency/font fails, fix it and explicitly toggle visibility O
 Opacity changes alone do not repeatedly retry the failed renderer. Existing camera recognition continues.
 
 Automated geometry/alpha tests and actual webcam readability/performance are separate evidence.
-The current overlay can show where the existing image-space keys lie; it cannot prove physical
+Only the legacy alignment view shows the current v0.2 image-space input regions. TKL87 illustrates
+physical proportions without changing hit testing. Neither view can prove physical
 fingertip contact or comfortable spatial typing. Exact implementation/test/manual status is in
 [AIR_TYPING_HANDOFF.md](../testing/AIR_TYPING_HANDOFF.md).
 

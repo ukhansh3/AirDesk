@@ -24,8 +24,15 @@ index/Pinch profile. Actual webcam typing accuracy is **NOT_VERIFIED**; see the
 ### Live PC camera wireframe (2026-11-08)
 
 The user approved the existing single-RGB-webcam experiment and a green line/text keyboard reference
-on the PC's live camera image. Reuse all 81 existing key rectangles plus the mouse region; the 26
-letter keys have English and two-set Hangul labels. Outline/glyph opacity defaults to 40% and the PC
+on the PC's live camera image. The camera now defaults to a physical-proportion **ANSI TKL87 reference**:
+18.75×7u casing, uniform scale, bottom-center placement, 6.25u Space, separated function/navigation/
+arrow clusters, no numpad and no large mouse rectangle. Its 26 letter keys show English/Hangul.
+**This camera TKL layout is display-only, not the current AIR input map.** The camera dropdown's
+**기존 AIR 입력 정렬** preserves the 81-key + mouse image-space-aligned reference. The Android dock
+and separate PC estimate window keep their existing 81-key geometry and supported actions.
+The default dropdown option is **텐키리스 · 87키 비율**. Chosen casing units are a visual reference,
+not a product measurement; see [ADR-008](../decisions/ADR-008-TKL-CAMERA-REFERENCE.md).
+Outline/glyph opacity defaults to 40% and the PC
 control spans 15–80%; key/panel backgrounds remain fully transparent. The display checkbox defaults ON.
 
 This PC reference is composed after MediaPipe input using reviewed Pillow `>=10,<14` camera/all
@@ -37,6 +44,7 @@ the allocated preview. The separate OpenCV CLI preview is unchanged. Explicit OF
 font/dependency failure; moving opacity alone does not. Actual camera/GUI rendering remains NOT_RUN.
 
 The Android dock/editor, active language/composition, key actions and v0.1/v0.2 contracts do not change.
+Physical-only TKL keycaps are visual references; showing them does not implement extra editor/global shortcuts.
 The green image-space rectangles do not add measured world-space contact, HOME/hand-follow mapping,
 v0.3 input or a physical hologram. Actual typing accuracy and webcam readability remain
 manual gates under [the spatial design](SPATIAL_AIR_KEYBOARD_DESIGN.md).

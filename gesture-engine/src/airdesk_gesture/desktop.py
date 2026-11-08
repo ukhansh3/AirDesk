@@ -10,6 +10,8 @@ from tkinter import filedialog, messagebox, ttk
 
 from .desktop_runtime import DesktopRuntime, SetupError, find_model, read_app_token
 
+CAMERA_KEYBOARD_LAYOUTS = {"텐키리스 · 87키 비율": "tkl", "기존 AIR 입력 정렬": "legacy"}
+
 
 class DesktopApp:
     def __init__(self, root: tk.Tk, project: Path):
@@ -51,7 +53,8 @@ class DesktopApp:
         self.tracking = tk.StringVar(value="손 인식 대기")
         self.camera_keyboard = tk.BooleanVar(value=True)
         self.keyboard_opacity = tk.DoubleVar(value=.4)
-        self.camera_keyboard_status = tk.StringVar(value="초록색 키보드 겹쳐보기 · 한글/영문 · 키 내부는 투명")
+        self.keyboard_layout = tk.StringVar(value="텐키리스 · 87키 비율")
+        self.camera_keyboard_status = tk.StringVar(value="TKL 87키 배치 참고용 · 기존 타건은 '기존 AIR 입력 정렬' 선택")
         self.camera_quality = tk.StringVar(value="미리보기 손 감지/관절 표시 대기")
         self.root.title("AirDesk · PC 카메라")
         self.root.geometry("1040x790")
@@ -84,10 +87,13 @@ class DesktopApp:
         display_controls.pack(fill="x", pady=(0, 4))
         ttk.Checkbutton(display_controls, text="카메라 키보드 표시", variable=self.camera_keyboard,
                         command=self.update_camera_keyboard).pack(side="left")
+        self.keyboard_layout_combo = ttk.Combobox(display_controls, textvariable=self.keyboard_layout,
+                                                 values=list(CAMERA_KEYBOARD_LAYOUTS), width=19, state="readonly")
+        self.keyboard_layout_combo.pack(side="left", padx=(10, 0))
+        self.keyboard_layout_combo.bind("<<ComboboxSelected>>", lambda _: self.update_camera_keyboard())
         ttk.Label(display_controls, text="선 농도").pack(side="left", padx=(16, 6))
         ttk.Scale(display_controls, from_=.15, to=.8, variable=self.keyboard_opacity,
-                  command=lambda _: self.update_camera_keyboard(), length=160).pack(side="left")
-        ttk.Label(display_controls, text="옅게 ← → 진하게").pack(side="left", padx=8)
+                  command=lambda _: self.update_camera_keyboard(), length=120).pack(side="left")
         ttk.Label(body, textvariable=self.camera_keyboard_status, foreground="#80dca9").pack(anchor="w")
         ttk.Label(body, textvariable=self.camera_quality, wraplength=960, foreground="#9eb1d7").pack(anchor="w")
         try:
@@ -115,8 +121,10 @@ class DesktopApp:
 
     def update_camera_keyboard(self):
         enabled = self.camera_keyboard.get()
-        self.runtime.set_camera_keyboard(enabled=enabled, opacity=self.keyboard_opacity.get())
-        self.camera_keyboard_status.set("초록색 키보드 겹쳐보기 · 한글/영문 · 키 내부는 투명" if enabled
+        layout = CAMERA_KEYBOARD_LAYOUTS[self.keyboard_layout.get()]
+        self.runtime.set_camera_keyboard(enabled=enabled, opacity=self.keyboard_opacity.get(), layout=layout)
+        self.camera_keyboard_status.set(("TKL 87키 배치 참고용 · 기존 타건은 '기존 AIR 입력 정렬' 선택" if layout == "tkl"
+                                         else "기존 AIR 입력 정렬 · 81키 · 입력 결과는 Android 앱에서 확인") if enabled
                                         else "키보드 겹쳐보기 꺼짐 · 손 관절과 카메라 영상만 표시")
 
     def open_keyboard_window(self):

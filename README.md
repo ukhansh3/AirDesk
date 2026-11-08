@@ -41,6 +41,10 @@ checks outside the restricted agent environment before treating the integration 
 
 ## Read first
 
+The camera preview defaults to a proportional **87-key tenkeyless reference**. Choose **기존 AIR 입력 정렬**
+when testing the existing Android AIR hit map. This camera-only change is documented in
+[ADR-008](docs/decisions/ADR-008-TKL-CAMERA-REFERENCE.md).
+
 The current one-webcam experiment adds a green English/Hangul outline keyboard to the local PC
 camera preview. Key interiors remain transparent; visibility and opacity are adjustable. It is
 an image-space reference, not verified spatial contact sensing. See

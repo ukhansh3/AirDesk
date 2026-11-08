@@ -1,21 +1,35 @@
 # Experimental ten-finger midair typing — handoff
 
 Updated: 2026-11-08. Scope: isolated AirDesk-owned DEBUG DEMO only.
-Status: **GREEN PC CAMERA REFERENCE IMPLEMENTED (EXPERIMENTAL) + AUTOMATED PASS; synthetic runtime preview visually reviewed; actual webcam readability/behavior and PLEOS/PC rendering NOT_RUN; operational vehicle input BLOCKED**.
+Status: **TKL87 CAMERA-ONLY REFERENCE IMPLEMENTED + AUTOMATED PASS; synthetic renders reviewed; TKL is not current AIR input mapping; actual webcam/Tk/PLEOS behavior NOT_RUN; operational vehicle input BLOCKED**.
 This handoff describes repairs to the existing v0.2 prototype. The newly clarified fixed midair/spatial
 key-location interaction is a separate design under review, not implemented functionality in this repair.
 
 ## Current delivery — approved single-camera reference
 
 The user selected one RGB webcam as the first research path and requested a green keyboard over the
-live PC camera image, with English/Hangul labels and clear interiors. The display uses all 81 existing
-key rectangles and the mouse region; all 26 letter keys show both scripts. Green outline/glyph alpha
+live PC camera image, with English/Hangul labels and clear interiors. The camera default is now a
+physical-proportion **ANSI TKL87 visual reference**: 18.75×7u casing (about 2.68:1), uniform axis scale,
+bottom-center placement, square 1u keys, physical modifier widths including 6.25u Space, separated
+function/navigation/arrow groups, no numpad and no large mouse rectangle. All 26 letter keys show both scripts.
+The casing units are selected visual-reference dimensions, not measurements of a physical product.
+The default dropdown label is **텐키리스 · 87키 비율**; see
+[ADR-008](../decisions/ADR-008-TKL-CAMERA-REFERENCE.md).
+
+**The default TKL87 image is DISPLAY ONLY and is not mapped to current v0.2 AIR input.** The dropdown
+option **기존 AIR 입력 정렬** restores the original 81-key + mouse camera reference, whose per-axis
+normalized image-space mapping still matches current AIR hit testing. The Android keyboard and the
+separate **큰 키보드 창** remain on their prior 81-key geometry. The renderer's low-level default remains
+legacy for compatibility; only the PC runtime's selected camera display defaults to TKL.
+
+Green outline/glyph alpha
 defaults to 0.4, with a default-ON checkbox and a 15–80% PC opacity control. Key/panel backgrounds
 remain zero-alpha; there is no filled tinted keyboard plate over the hands.
 
 This is composition into the resized PC preview after MediaPipe has received its input. It does not
 alter raw landmarks, calibration/press features, the Android editor, or v0.1/v0.2 packets. No camera
-frame is saved or sent over WebSocket. The existing absolute normalized image-space mapping remains;
+frame is saved or sent over WebSocket. Current input continues using its existing absolute normalized
+81-key image-space mapping, independently of the camera display selection;
 the overlay does not deliver a world-space plane/contact classifier, HOME mapping or v0.3 profile.
 
 Pillow `>=10,<14` in the camera/all optional extras is the reviewed Unicode/RGBA dependency. The
@@ -24,7 +38,8 @@ not redistributed. Missing dependency/font support disables this optional displa
 explanation and leaves the original recognition path available. See
 [ADR-007](../decisions/ADR-007-SINGLE-WEBCAM-KEYBOARD-OVERLAY.md) for rationale and alternatives.
 
-The final checks and synthetic visual review are recorded below. A synthetic image/alpha test is
+Newest TKL checks and synthetic visual review are recorded below; earlier 81-key results are retained as history.
+A synthetic image/alpha test is
 distinct from actual webcam legibility, performance or spatial typing accuracy.
 
 ## What is implemented
@@ -434,27 +449,33 @@ Host/mTLS results remain separate; their previous failures are not converted to 
 
 1. Close the old PC camera panel, then restart **Run-AirDesk.cmd** so the updated renderer/UI is loaded.
    Keep existing webcam/model/token settings. Start the camera and leave **카메라 키보드 표시** enabled.
-2. Confirm green outlines for all 81 keys and the mouse area appear on the live image. Read English
-   and Hangul on all 26 letter keys; check that letters are not empty boxes. F1–F12 and navigation/
-   modifier groups must remain visible. The green drawing is a reference, not accepted key input.
-3. Inspect the hands through the key interiors. Only border/glyph pixels should tint the image;
+2. Check the default TKL87 reference: 87 visible keys, about 2.68:1 casing ratio, square single-unit
+   keys and bottom-center placement. Verify function-row gaps, navigation/arrows, physical modifier
+   widths and 6.25u Space. There must be no numpad or large mouse block. Read English/Hangul on all
+   26 letter keys. This TKL picture must be labeled as a reference, not current AIR input coordinates.
+3. Select **기존 AIR 입력 정렬** and confirm the original 81-key + mouse image-space reference returns.
+   Use this mode when comparing current v0.2 fingertip/key targeting; do not report TKL87 hit mapping
+   as implemented. Selecting either display must leave the input stream, app layout and permissions unchanged.
+4. Inspect the hands through the key interiors. Only border/glyph pixels should tint the image;
    no opaque or translucent filled background should cover whole keys or the keyboard panel.
-4. Adjust **선 농도** from its default 40% toward 15% and 80%; toggle display off/on. Camera
+5. Adjust **선 농도** from its default 40% toward 15% and 80%; toggle display off/on. Camera
    tracking, calibration and the local app input gate must keep their existing behavior. Adjust/arrange
    PC windows before hands-free calibration and keep the Android app foreground while testing input.
-5. Resize the PC panel and verify the complete image fits its allocated preview (maximum 860×480),
+6. Resize the PC panel and verify the complete image fits its allocated preview (maximum 860×480),
    rather than cropping keys after controls take space. Quality/guard captions must remain visible
    **outside the video**, with function keys unobstructed. Record readability and draw cost/lag. Do not
    infer metric depth/contact or spatial-key accuracy from a pleasing overlay.
-6. Check camera stop/restart, disconnect and panel exit; no delayed old preview should reappear.
+   TKL proportions must remain fixed under wide/tall resize; the legacy mode intentionally follows
+   its old per-axis normalized geometry. No Android rebuild is required for this PC-only display change.
+7. Check camera stop/restart, disconnect and panel exit; no delayed old preview should reappear.
    Separately rerun Android AIR and Phase 1 cursor checks to establish human regression evidence.
    Do not report those checks PASS until the user actually performs them.
-7. If Pillow/font support was unavailable, fix that dependency/font, then toggle **카메라 키보드 표시**
+8. If Pillow/font support was unavailable, fix that dependency/font, then toggle **카메라 키보드 표시**
    OFF and ON to retry. Moving **선 농도** alone must not repeatedly retry a failed font load. Existing
    camera recognition must keep running when the optional display is unavailable. The standalone
    OpenCV `--preview` retains its previous captions and has no new green camera-keyboard layer.
 
-### Final current delivery results
+### Previous 81-key overlay delivery — verified history
 
 The complete harness exited **0**, report generated **2026-11-08T06:10:11.4790962Z**
 (2026-11-08 15:10:11 KST), after source freeze.
@@ -482,3 +503,35 @@ Windows/Pillow/Malgun execution above; neither run opens a camera or establishes
 Actual webcam/GUI/Pillow-font readability, live resize/focus/performance and Android manual regressions
 remain **NOT_RUN**. No new fixed-world press classifier, hologram or protocol profile is verified by
 this display step.
+
+## Current TKL87 update — final verification
+
+The update is limited to the PC camera reference and its local selector. No dependency, SDK, permission,
+Android source, v0.1/v0.2 schema or input geometry changes were made. The earlier 167-Python/182-JVM
+and remote-CI results above apply to the prior 81-key camera reference, not the new TKL geometry.
+
+The final complete harness exited **0**, with report
+`out/input-first-verification/verification.json` generated **2026-11-08T06:56:39.1294820Z**
+(2026-11-08 15:56:39 KST), after source freeze.
+
+| Stage | Final actual result | Duration and execution boundary |
+| --- | --- | --- |
+| Python regression and AIR models | **180 tests newly executed, PASS; zero skips** | 38.721 s; preserves the prior 167 tests and adds 8 TKL geometry/renderer plus 5 independent runtime/preview regressions. |
+| Original canonical fixtures | **5 tests / 17 fixtures newly executed, PASS** | 0.436 s; unchanged v0.1 contracts. |
+| Experimental AIR fixtures | **7 tests / 56 fixtures newly executed, PASS** | 0.443 s; unchanged v0.2 contracts. |
+| Unchanged Android compile/JVM/APK build check | **Prior 182 PASS / 20 suites retained; cached assembleDebug check PASS** | 17.600 s; all 45 Gradle tasks were UP-TO-DATE. No fresh compile, JVM test execution or APK packaging occurred. Retained JUnit records have zero failures, errors or skips. |
+
+New checks cover the 87-key count/groups, physical relative widths, row stagger/gaps, square ordinary
+keycaps, uniform fit/reference casing aspect, bilingual labels, transparent backgrounds, both display
+modes and unchanged legacy input/source data. The supervisor reviewed synthetic runtime images at
+860×480 and 640×480: all 87 keys were legible and single-unit caps retained their square proportions.
+The renderer agent also reviewed a portrait example for in-bounds small labels. These are synthetic
+images, not webcam/Tk screenshots or evidence of comfortable real-world typing.
+
+At the local pre-push freeze, the **new TKL GitHub run had not yet executed**. See the repository's
+workflow runs for subsequent post-push results. The previous successful run48 above verified the old
+81-key source and is not reused as a TKL success.
+Actual webcam/Tk legibility, live resize and PLEOS regression behavior remain **NOT_RUN**. TKL hit
+mapping, fixed-world press sensing, new protocols and input authority are not implemented by this
+display-only update. The **기존 AIR 입력 정렬** option remains necessary for comparing current v0.2
+typing with aligned camera key regions.

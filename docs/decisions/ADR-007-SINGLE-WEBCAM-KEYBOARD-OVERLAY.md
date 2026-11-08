@@ -4,6 +4,10 @@ Date: 2026-11-08.
 Status: Accepted user direction: one RGB webcam first; transparent camera keyboard reference.
 Fixed world-space contact recognition remains experimental design, not implemented by this display change.
 
+Follow-up: [ADR-008](ADR-008-TKL-CAMERA-REFERENCE.md) replaces the PC panel's default visual with a
+proportional 87-key TKL reference. The 81-key mapping described below remains available as
+**기존 AIR 입력 정렬**. The new TKL camera reference does not change that legacy input hit map.
+
 ## User decision
 
 Use the existing single Windows-PC webcam for the next experiment. No new depth device, projector,

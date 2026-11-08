@@ -94,6 +94,7 @@ class DesktopRuntime:
         self._camera_keyboard_lock = threading.Lock()
         self._camera_keyboard_enabled = True
         self._camera_keyboard_opacity = .4
+        self._camera_keyboard_layout = "tkl"
         self._camera_keyboard = None
         self._camera_keyboard_failed = False
         self._camera_keyboard_announced = False
@@ -150,13 +151,25 @@ class DesktopRuntime:
         with self._camera_keyboard_lock:
             return self._camera_keyboard_enabled, self._camera_keyboard_opacity
 
-    def set_camera_keyboard(self, *, enabled: bool | None = None, opacity: float | None = None):
+    @property
+    def camera_keyboard_layout(self) -> str:
+        with self._camera_keyboard_lock:
+            return self._camera_keyboard_layout
+
+    def set_camera_keyboard(self, *, enabled: bool | None = None, opacity: float | None = None,
+                            layout: str | None = None):
         """Display preferences only; never alter detector samples or input authority."""
         if enabled is not None and type(enabled) is not bool:
             raise ValueError("invalid camera keyboard visibility")
         if opacity is not None and (type(opacity) not in (int, float) or not isfinite(opacity) or not 0 <= opacity <= 1):
             raise ValueError("invalid camera keyboard opacity")
+        if layout is not None and (type(layout) is not str or layout not in {"tkl", "legacy"}):
+            raise ValueError("invalid camera keyboard layout")
         with self._camera_keyboard_lock:
+            if layout is not None and layout != self._camera_keyboard_layout:
+                self._camera_keyboard_layout = layout
+                self._camera_keyboard_failed = False
+                self._camera_keyboard_announced = False
             if enabled is not None:
                 if enabled and not self._camera_keyboard_enabled:
                     self._camera_keyboard_failed = False
@@ -184,18 +197,20 @@ class DesktopRuntime:
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         height, width = rgb.shape[:2]
         pixels = rgb.tobytes()
-        enabled, opacity = self.camera_keyboard_settings
+        with self._camera_keyboard_lock:
+            enabled, opacity, layout = self._camera_keyboard_enabled, self._camera_keyboard_opacity, self._camera_keyboard_layout
         if enabled and not self._camera_keyboard_failed:
             try:
-                if self._camera_keyboard is None:
+                if self._camera_keyboard is None or self._camera_keyboard.layout != layout:
                     from .camera_keyboard import CameraKeyboardOverlay
-                    self._camera_keyboard = CameraKeyboardOverlay()
+                    self._camera_keyboard = CameraKeyboardOverlay(layout=layout, include_mouse=layout == "legacy")
                 composited = self._camera_keyboard.render_rgb(width, height, pixels, opacity=opacity)
                 if not isinstance(composited, bytes) or len(composited) != width * height * 3:
                     raise ValueError("invalid optional preview output")
                 pixels = composited
                 if not self._camera_keyboard_announced:
-                    self.notify("camera_keyboard", "초록색 키보드 겹쳐보기 · 선과 글자만 표시 · 입력 결과는 Android 앱에서 확인")
+                    self.notify("camera_keyboard", "TKL 87키 · 비율 고정 · 배치 참고용 · 기존 타건은 '기존 AIR 입력 정렬' 선택" if layout == "tkl"
+                                else "기존 AIR 입력 정렬 · 81키 · 입력 결과는 Android 앱에서 확인")
                     self._camera_keyboard_announced = True
             except Exception:
                 # Optional visualization cannot stop capture or change recognition.

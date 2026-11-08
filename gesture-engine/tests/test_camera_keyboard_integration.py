@@ -20,6 +20,8 @@ class CameraKeyboardRuntimeTests(unittest.TestCase):
     def setUp(self):
         self.events = []
         self.runtime = DesktopRuntime(Path("synthetic-project"), lambda kind, text: self.events.append((kind, text)))
+        # Preserve all original v0.2 image-aligned regression assertions explicitly.
+        self.runtime.set_camera_keyboard(layout="legacy")
 
     @staticmethod
     def bgr(color=(21, 33, 65), width=640, height=360):
@@ -49,7 +51,7 @@ class CameraKeyboardRuntimeTests(unittest.TestCase):
         self.assertGreater(int(holes.sum()), max(20, region.size * .10),
                            "Substantial camera areas inside the outline region must remain untouched")
 
-    def test_default_actual_compositor_draws_green_lines_and_preserves_camera_interiors(self):
+    def test_legacy_actual_compositor_draws_green_lines_and_preserves_camera_interiors(self):
         self.assertEqual(self.runtime.camera_keyboard_settings, (True, .4))
         frame = self.bgr()
         original = frame.tobytes()
@@ -58,6 +60,91 @@ class CameraKeyboardRuntimeTests(unittest.TestCase):
         base = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         self.assert_green_transparent_overlay(actual, base)
         self.assertEqual(frame.tobytes(), original, "Display composition must never modify the source BGR frame")
+
+    def test_default_runtime_tkl_has_87_keys_no_mouse_and_constant_board_proportions(self):
+        from airdesk_gesture.camera_keyboard import CameraKeyboardOverlay
+        self.runtime = DesktopRuntime(Path("synthetic-project"), lambda kind, text: self.events.append((kind, text)))
+        self.assertEqual(self.runtime.camera_keyboard_layout, "tkl")
+        self.assertEqual(self.runtime.camera_keyboard_settings, (True, .4))
+        renderer = CameraKeyboardOverlay(layout="tkl")
+        for width, height, allocation in ((640, 360, (860, 480)), (1280, 720, (860, 480)),
+                                           (480, 640, (860, 480)), (1280, 720, (360, 200))):
+            with self.subTest(source=(width, height), allocation=allocation):
+                self.runtime.set_preview_bounds(*allocation)
+                frame = self.bgr(width=width, height=height)
+                original = frame.tobytes()
+                frame.setflags(write=False)
+                actual = self.output(frame)
+                actual_height, actual_width = actual.shape[:2]
+                base = cv2.cvtColor(cv2.resize(frame, (actual_width, actual_height)), cv2.COLOR_BGR2RGB)
+                changed = np.any(actual != base, axis=2)
+                self.assertTrue(changed.any())
+                y, x = np.nonzero(changed)
+                span_x, span_y = int(x.max()-x.min()+1), int(y.max()-y.min()+1)
+                self.assertLessEqual(abs(span_x*7 - span_y*18.75), 7+18.75,
+                                     "Actual camera pixels must preserve the 18.75:7 TKL casing ratio, not stretch to the frame")
+                self.assertLessEqual(abs((x.max()+x.min())/2 - (actual_width-1)/2), 1.5)
+                self.assertGreaterEqual(int(y.max()), actual_height/2)
+                plan = renderer.layout_plan(actual_width, actual_height)
+                self.assertEqual(len(plan.keys), 87)
+                self.assertEqual(len({key.code for key in plan.keys}), 87)
+                self.assertIsNone(plan.mouse_bounds)
+                self.assertEqual(frame.tobytes(), original)
+
+    def test_explicit_legacy_runtime_pixels_match_unchanged_legacy_renderer(self):
+        from airdesk_gesture.camera_keyboard import CameraKeyboardOverlay
+        frame = self.bgr()
+        self.assertEqual(self.runtime.camera_keyboard_layout, "legacy")
+        raw = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).tobytes()
+        legacy = CameraKeyboardOverlay()
+        self.assertEqual(legacy.layout, "legacy", "The renderer's existing public constructor keeps its old mode")
+        self.assertEqual(self.output(frame).tobytes(), legacy.render_rgb(640, 360, raw, opacity=.4))
+
+    def test_switching_layouts_rebuilds_only_the_reference_not_camera_background_or_air_payloads(self):
+        from airdesk_gesture.camera_keyboard import CameraKeyboardOverlay
+        first, second = self.bgr((10, 20, 40)), self.bgr((70, 45, 15))
+        original = first.tobytes(), second.tobytes()
+        raw_first = cv2.cvtColor(first, cv2.COLOR_BGR2RGB).tobytes()
+        raw_second = cv2.cvtColor(second, cv2.COLOR_BGR2RGB).tobytes()
+        self.runtime.set_camera_keyboard(layout="tkl")
+        tkl = self.output(first).tobytes()
+        self.assertEqual(tkl, CameraKeyboardOverlay(layout="tkl").render_rgb(640, 360, raw_first, opacity=.4))
+        self.runtime.set_camera_keyboard(layout="legacy")
+        legacy = self.output(first).tobytes()
+        self.assertNotEqual(tkl, legacy)
+        self.assertEqual(legacy, CameraKeyboardOverlay(layout="legacy").render_rgb(640, 360, raw_first, opacity=.4))
+        self.runtime.set_camera_keyboard(layout="tkl")
+        self.assertEqual(self.output(second).tobytes(), CameraKeyboardOverlay(layout="tkl").render_rgb(640, 360, raw_second, opacity=.4))
+        self.assertEqual((first.tobytes(), second.tobytes()), original)
+        self.assertTrue(self.runtime.air_frames.empty(), "Camera-only layout selection must not generate AIR data")
+        self.assertEqual(self.runtime.camera_keyboard_settings, (True, .4))
+
+    def test_invalid_layout_is_rejected_without_changing_the_current_mode(self):
+        from airdesk_gesture.camera_keyboard import CameraKeyboardOverlay
+        for bad in ("", "TKL", "ansi", 87, True):
+            with self.subTest(layout=bad):
+                with self.assertRaises(ValueError):
+                    self.runtime.set_camera_keyboard(layout=bad)
+                self.assertEqual(self.runtime.camera_keyboard_layout, "legacy")
+        renderer = CameraKeyboardOverlay(layout="tkl")
+        with self.assertRaises(AttributeError):
+            renderer.layout = "legacy"
+
+    def test_layout_change_retries_an_optional_font_failure_but_opacity_drag_does_not(self):
+        self.runtime.set_camera_keyboard(layout="tkl")
+        frame = self.bgr()
+        raw = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        with patch("airdesk_gesture.camera_keyboard.CameraKeyboardOverlay", side_effect=ImportError("private font path")) as constructor:
+            np.testing.assert_array_equal(self.output(frame), raw)
+            self.runtime.set_camera_keyboard(opacity=.6)
+            np.testing.assert_array_equal(self.output(frame), raw)
+            self.assertEqual(constructor.call_count, 1)
+        self.runtime.set_camera_keyboard(layout="legacy")
+        self.assert_green_transparent_overlay(self.output(frame), raw)
+        self.assertEqual(self.runtime.camera_keyboard_layout, "legacy")
+        self.assertEqual(self.runtime.camera_keyboard_settings, (True, .6))
+        self.assertEqual(len(self.events), 2)
+        self.assertTrue(all("private font path" not in message for _, message in self.events))
 
     def test_explicit_disable_outputs_the_original_rgb_exactly_and_never_initializes_renderer(self):
         self.runtime.set_camera_keyboard(enabled=False)

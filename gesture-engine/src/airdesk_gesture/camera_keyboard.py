@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 
 from .keyboard_preview import KeyboardGeometry, JAMO, WIDTH, HEIGHT
+from .camera_keyboard_layouts import TKLKeyboardGeometry
 
 
 class RenderUnavailable(RuntimeError):
@@ -33,6 +34,8 @@ class CameraKeyboardPlan:
     height: int
     keys: tuple[KeyOutline, ...]
     mouse_bounds: tuple[float, float, float, float] | None
+    keyboard_bounds: tuple[float, float, float, float] | None = None
+    layout: str = "legacy"
 
 
 def _dimensions(width: int, height: int):
@@ -57,17 +60,25 @@ def _pillow():
 class CameraKeyboardOverlay:
     """Static full-keyboard overlay; source normalized x/y are not remapped.
 
-    X and Y independently cover the full RGB frame, matching the existing
-    normalized 1120x360 key geometry. This intentionally does not letterbox or
-    estimate perspective. Construct once, call render_rgb for each preview.
+    Default legacy mode independently scales X/Y to the RGB frame, preserving
+    the existing normalized v0.2 coordinates. Optional tkl mode uniformly fits a
+    physical-proportion 87-key reference at the bottom center; it does NOT align
+    to legacy AIR input coordinates. Neither mode estimates a physical plane.
     """
     GREEN = (40, 255, 96)
 
-    def __init__(self, font_path: str | Path | None = None, *, include_mouse: bool = True):
+    def __init__(self, font_path: str | Path | None = None, *, include_mouse: bool = True, layout: str = "legacy"):
+        if type(layout) is not str or layout not in {"legacy", "tkl"}:
+            raise ValueError("camera keyboard layout must be legacy or tkl")
+        self._layout = layout
         self._font_path = Path(font_path) if font_path is not None else None
         self._include_mouse = bool(include_mouse)
         self._cache_key: tuple[int, int, float] | None = None
         self._cache_rgba: bytes | None = None
+
+    @property
+    def layout(self) -> str:
+        return self._layout
 
     @property
     def cached_key(self) -> tuple[int, int, float] | None:
@@ -75,6 +86,13 @@ class CameraKeyboardOverlay:
 
     def layout_plan(self, width: int, height: int) -> CameraKeyboardPlan:
         _dimensions(width, height)
+        if self._layout == "tkl":
+            fit = TKLKeyboardGeometry.fit(width, height)
+            keys = tuple(KeyOutline(key.code, key.label,
+                JAMO[key.code[-1]] if key.code.startswith("Key") else "한/영" if key.code == "AltRight" else None,
+                fit.key_bounds(key)) for key in TKLKeyboardGeometry.keys())
+            # include_mouse applies only to legacy. TKL has no large mouse pad.
+            return CameraKeyboardPlan(width, height, keys, None, fit.keyboard_bounds, "tkl")
         sx, sy = width/WIDTH, height/HEIGHT
         def bounds(rect):
             return rect.x*sx, rect.y*sy, rect.right*sx, rect.bottom*sy
@@ -128,8 +146,11 @@ class CameraKeyboardOverlay:
 
         def labels(rect, english, hangul=None):
             left, top, right, bottom = rect
+            if min(right-left, bottom-top) < 10:
+                return  # tiny previews retain outlines without unreadable text overflow
             available = max(1, right-left-6)
-            size = max(5, min(24, round((bottom-top)*(.27 if hangul else .4))))
+            letter_scale = .31 if self._layout == "tkl" else .27
+            size = max(5, min(24, round((bottom-top)*(letter_scale if hangul else .4))))
             texts = (english, hangul) if hangul else (english,)
             while size > 5 and any(draw.textbbox((0, 0), text, font=font_at(size))[2] > available for text in texts):
                 size -= 1
@@ -145,9 +166,12 @@ class CameraKeyboardOverlay:
 
         def outline(rect):
             left, top, right, bottom = rect
-            draw.rectangle((max(0, floor(left)), max(0, floor(top)), min(width-1, ceil(right)-1), min(height-1, ceil(bottom)-1)),
-                           outline=color, width=stroke)  # no fill: interiors stay clear
+            raster = max(0, floor(left)), max(0, floor(top)), min(width-1, ceil(right)-1), min(height-1, ceil(bottom)-1)
+            if raster[2] >= raster[0] and raster[3] >= raster[1]:
+                draw.rectangle(raster, outline=color, width=stroke)  # no fill
 
+        if plan.keyboard_bounds is not None:
+            outline(plan.keyboard_bounds)  # transparent outer casing, no input surface
         for key in plan.keys:
             outline(key.bounds)
             labels(key.bounds, key.english, key.hangul)
