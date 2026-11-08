@@ -1,9 +1,31 @@
 # Experimental ten-finger midair typing — handoff
 
 Updated: 2026-11-08. Scope: isolated AirDesk-owned DEBUG DEMO only.
-Status: **IMPLEMENTED (EXPERIMENTAL) + AUTOMATED PASS: same-connection calibration recovery and local detection diagnostics; actual webcam behavior and PLEOS/PC rendering NOT_RUN; operational vehicle input BLOCKED**.
+Status: **GREEN PC CAMERA REFERENCE IMPLEMENTED (EXPERIMENTAL) + AUTOMATED PASS; synthetic runtime preview visually reviewed; actual webcam readability/behavior and PLEOS/PC rendering NOT_RUN; operational vehicle input BLOCKED**.
 This handoff describes repairs to the existing v0.2 prototype. The newly clarified fixed midair/spatial
 key-location interaction is a separate design under review, not implemented functionality in this repair.
+
+## Current delivery — approved single-camera reference
+
+The user selected one RGB webcam as the first research path and requested a green keyboard over the
+live PC camera image, with English/Hangul labels and clear interiors. The display uses all 81 existing
+key rectangles and the mouse region; all 26 letter keys show both scripts. Green outline/glyph alpha
+defaults to 0.4, with a default-ON checkbox and a 15–80% PC opacity control. Key/panel backgrounds
+remain zero-alpha; there is no filled tinted keyboard plate over the hands.
+
+This is composition into the resized PC preview after MediaPipe has received its input. It does not
+alter raw landmarks, calibration/press features, the Android editor, or v0.1/v0.2 packets. No camera
+frame is saved or sent over WebSocket. The existing absolute normalized image-space mapping remains;
+the overlay does not deliver a world-space plane/contact classifier, HOME mapping or v0.3 profile.
+
+Pillow `>=10,<14` in the camera/all optional extras is the reviewed Unicode/RGBA dependency. The
+development environment already has Pillow 13.0.0. Windows' installed Malgun font is read locally,
+not redistributed. Missing dependency/font support disables this optional display with a bounded
+explanation and leaves the original recognition path available. See
+[ADR-007](../decisions/ADR-007-SINGLE-WEBCAM-KEYBOARD-OVERLAY.md) for rationale and alternatives.
+
+The final checks and synthetic visual review are recorded below. A synthetic image/alpha test is
+distinct from actual webcam legibility, performance or spatial typing accuracy.
 
 ## What is implemented
 
@@ -41,7 +63,7 @@ dots/highlights. Closing/reopening does not restore an expired held estimate.
 
 The user reported excessive movement of the camera's 21 joint dots while holding a hand nearly
 still. This update stabilizes the displayed joint positions and outgoing AIR hover coordinates.
-It does not change MediaPipe inference, the camera image, raw `CameraSample`/`CameraHand` landmarks,
+It does not change MediaPipe input/inference or raw `CameraSample`/`CameraHand` landmarks,
 calibration feature/noise measurements, or press/release thresholds. A smoother outline does not
 prove a more accurate hand estimate or a successful typing calibration.
 
@@ -98,9 +120,10 @@ The user also reported that two hands appeared detected while calibration or typ
 The PC tracking caption now says **카메라 손 N개 감지 · 타건 유효 여부는 앱에서 확인**. Read the
 counts at their own pipeline stage:
 
-The PC webcam image includes **Preview only | detected N | drawn N**, **Guard: ...**, and
-**Not AIR accepted; side score != landmark confidence**. Read the Guard line when the counts differ;
-**OK for drawing only** confirms only the overlay's eligibility checks.
+The Run-AirDesk panel now puts **미리보기 감지 N · 관절 표시 N · Guard: ...** outside the camera image,
+with **타건 유효 여부는 Android 앱에서 확인**. Read Guard when the counts differ. The standalone OpenCV
+preview retains its embedded **Preview only | detected N | drawn N** captions. **OK for drawing only**
+confirms only the overlay's eligibility checks, not accepted typing.
 
 | Indicator | Meaning |
 | --- | --- |
@@ -121,13 +144,14 @@ stay fixed in midair, using a laser-projection keyboard image only as a visual r
 has no flat typing surface. A desk/paper keyboard, surface projection and moving HOME keyboard are
 not the selected solution.** The intended fixed keyboard does not follow moving hands.
 
-The sensing approach—an explicitly experimental single-webcam estimate versus a measured depth/tracking
-design—remains undecided, so new layout implementation is paused. See
-[SPATIAL_AIR_KEYBOARD_DESIGN.md](../features/SPATIAL_AIR_KEYBOARD_DESIGN.md), which is **DESIGN ONLY,
-NOT IMPLEMENTED**. Neither HOME/hand-follow nor fixed-plane spatial sensing is implemented in this repair.
+The user has now selected a visibly experimental **single-RGB-webcam estimate first**. A measured
+depth/tracking design is only a future fallback if measurements show the webcam approach is inadequate.
+See [SPATIAL_AIR_KEYBOARD_DESIGN.md](../features/SPATIAL_AIR_KEYBOARD_DESIGN.md) for that selected
+experiment, its current image-space green reference and the still-unimplemented fixed-world sensing
+goals. Neither HOME/hand-follow nor measured fixed-plane press sensing is implemented here.
 
-The v0.3 app-mode proposal was approved but is deferred until that interaction model is confirmed.
-This repair adds no v0.3 profile or schema and keeps the current v0.2 mapping. Repeating calibration
+The v0.3 app-mode proposal was approved but remains deferred until the coordinate/input model is concrete.
+This delivery adds no v0.3 profile or schema and keeps the current v0.2 mapping. Repeating calibration
 does not replace the current absolute mapping or provide the newly requested fixed key space.
 
 The approved recognition/profile design is documented in
@@ -359,7 +383,7 @@ Gradle result is not relabeled as 156 new test executions. Python and both contr
 against the new code. Actual camera-dot improvement, visual comfort, response delay and typing accuracy
 remain **NOT_RUN**. Headless overlay/Tk tests do not establish actual rendering or sensor accuracy.
 
-### Temporary source delay recovery — current final verification
+### Previous temporary source delay recovery — historical verification
 
 The updated real-loopback `test_air_server.py` suite passed **13 tests, exit 0, 33.251 seconds**.
 The new regression uses the real engine, real automatic-calibration timers and synthetic two-hand
@@ -398,9 +422,59 @@ The final Android-only rerun verifies the last pending-start correction; it is n
 During the Android rerun, access to a Kotlin daemon marker under AppData was denied. Gradle's automatic
 non-daemon compiler fallback completed successfully; this warning did not fail the build or tests.
 
-All final results concern the current v0.2 recovery/diagnostics repair. They do not verify the deferred
+Those results concern the previous v0.2 recovery/diagnostics repair. They do not verify the current
+green camera-reference update or the deferred
 fixed-midair-keyboard/v0.3 design, actual webcam typing accuracy or new sensing hardware. No new
 typing layout, v0.3 schema/route or OS-input authority is included.
 
 No actual camera, emulator, GUI or OS input is launched by the automated harness. Historical Windows
 Host/mTLS results remain separate; their previous failures are not converted to passes by AIR tests.
+
+## Green camera reference — manual checks and final evidence
+
+1. Close the old PC camera panel, then restart **Run-AirDesk.cmd** so the updated renderer/UI is loaded.
+   Keep existing webcam/model/token settings. Start the camera and leave **카메라 키보드 표시** enabled.
+2. Confirm green outlines for all 81 keys and the mouse area appear on the live image. Read English
+   and Hangul on all 26 letter keys; check that letters are not empty boxes. F1–F12 and navigation/
+   modifier groups must remain visible. The green drawing is a reference, not accepted key input.
+3. Inspect the hands through the key interiors. Only border/glyph pixels should tint the image;
+   no opaque or translucent filled background should cover whole keys or the keyboard panel.
+4. Adjust **선 농도** from its default 40% toward 15% and 80%; toggle display off/on. Camera
+   tracking, calibration and the local app input gate must keep their existing behavior. Adjust/arrange
+   PC windows before hands-free calibration and keep the Android app foreground while testing input.
+5. Resize the PC panel and verify the complete image fits its allocated preview (maximum 860×480),
+   rather than cropping keys after controls take space. Quality/guard captions must remain visible
+   **outside the video**, with function keys unobstructed. Record readability and draw cost/lag. Do not
+   infer metric depth/contact or spatial-key accuracy from a pleasing overlay.
+6. Check camera stop/restart, disconnect and panel exit; no delayed old preview should reappear.
+   Separately rerun Android AIR and Phase 1 cursor checks to establish human regression evidence.
+   Do not report those checks PASS until the user actually performs them.
+7. If Pillow/font support was unavailable, fix that dependency/font, then toggle **카메라 키보드 표시**
+   OFF and ON to retry. Moving **선 농도** alone must not repeatedly retry a failed font load. Existing
+   camera recognition must keep running when the optional display is unavailable. The standalone
+   OpenCV `--preview` retains its previous captions and has no new green camera-keyboard layer.
+
+### Final current delivery results
+
+The complete harness exited **0**, report generated **2026-11-08T06:10:11.4790962Z**
+(2026-11-08 15:10:11 KST), after source freeze.
+
+| Stage | Actual result | Duration and execution boundary |
+| --- | --- | --- |
+| Python regression and AIR models | **167 tests newly executed, PASS; zero skips** | 36.573 s; prior 145 tests plus 9 renderer and 13 runtime/preview integration regressions. The 22 new tests used actual local Pillow 13/Malgun/OpenCV with synthetic pixels. No camera or real Tk window opened. |
+| Original canonical fixtures | **5 tests / 17 fixtures newly executed, PASS** | 0.387 s; unchanged v0.1 contracts. |
+| Experimental AIR fixtures | **7 tests / 56 fixtures newly executed, PASS** | 0.372 s; unchanged v0.2 contracts. |
+| Unchanged Android compile/JVM results and build check | **Prior 182 PASS / 20 suites retained; assembleDebug PASS** | 12.080 s; Android source unchanged. Compile/JVM tasks were UP-TO-DATE, so 182 tests were not newly executed. Packaging/build had 1 task executed and 44 UP-TO-DATE. Retained JUnit records have zero failures, errors or skips. |
+
+The supervisor visually inspected the actual `DesktopRuntime._preview` synthetic artifact
+`outputs/airdesk-camera-keyboard-final.png` at 860×480. All 81 keys and bilingual labels were legible,
+interior backgrounds remained unchanged and guard captions no longer covered the function row.
+This is a synthetic pipeline render review, not an actual webcam/Tk screenshot or typing test.
+
+The new isolated Ubuntu headless CI job installs Noto CJK/Tk, Pillow and OpenCV-headless for real
+Unicode/alpha tests and rejects skipped renderer tests. The remote GitHub job is **NOT_RUN** until
+GitHub executes it after delivery; local Windows tests do not prove that remote job passed.
+
+Actual webcam/GUI/Pillow-font readability, live resize/focus/performance and Android manual regressions
+remain **NOT_RUN**. No new fixed-world press classifier, hologram or protocol profile is verified by
+this display step.

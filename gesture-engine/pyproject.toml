@@ -11,9 +11,9 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["jsonschema>=4.23,<5"]
-camera = ["opencv-contrib-python>=4.9,<5", "mediapipe>=0.10,<0.11"]
+camera = ["opencv-contrib-python>=4.9,<5", "mediapipe>=0.10,<0.11", "Pillow>=10,<14"]
 ws = ["websockets>=14,<17", "jsonschema>=4.23,<5"]
-all = ["opencv-contrib-python>=4.9,<5", "mediapipe>=0.10,<0.11", "websockets>=14,<17", "jsonschema>=4.23,<5"]
+all = ["opencv-contrib-python>=4.9,<5", "mediapipe>=0.10,<0.11", "Pillow>=10,<14", "websockets>=14,<17", "jsonschema>=4.23,<5"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

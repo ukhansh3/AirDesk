@@ -1,6 +1,7 @@
 # Experimental two-hand ten-finger AIR typing
 
-Status: approved implementation design, 2026-11-07. Actual webcam typing accuracy is NOT_VERIFIED.
+Status: existing v0.2 implementation plus implemented/automatically verified PC camera reference, 2026-11-08.
+Actual webcam typing accuracy and fixed-world spatial sensing are NOT_VERIFIED.
 The user explicitly requested implementation after the calibrated-flex proposal and clarified the
 camera view and full-keyboard layout. This spec supersedes the draft proposal's pending status.
 
@@ -10,6 +11,29 @@ Hold both hands forward in midair, palms/fingers loosely curved downward, like p
 The camera views them from slightly above the front. The app shows the entire PC keyboard and mouse
 area, all visible fingertips and recognized down/up feedback; input text stays in the local editor.
 The current touch/single-Pinch profile remains available separately.
+
+### Live PC camera reference (user-approved display update)
+
+The single-RGB-webcam research approach is approved first; depth/tracking hardware is only a future
+fallback if measured results are insufficient. The current display step composites a full green PC
+keyboard and side mouse outline on the live PC camera preview using the existing normalized v0.2
+image-space geometry. All 26 letter keys show English/two-set Hangul labels. Only line/text pixels
+have opacity (default 40%; PC adjustment 15–80%); key/background interiors stay transparent. The PC
+checkbox defaults ON and the opacity control adjusts only the display layer.
+
+Compositing happens after MediaPipe input and is local to the PC preview. It does not alter raw
+landmarks, calibration/press thresholds, packets or Android editor behavior. No frame is saved or
+transmitted. Pillow `>=10,<14` in the camera/all extras and the local Windows Malgun font provide
+Unicode text/RGBA composition; see [ADR-007](../decisions/ADR-007-SINGLE-WEBCAM-KEYBOARD-OVERLAY.md).
+No font file is bundled. Turning the layer off does not turn tracking or typing on/off.
+The Run-AirDesk panel fits the complete image within its actual preview bounds (maximum 860×480)
+and shows quality/guard captions outside the image. Standalone OpenCV `--preview` is unchanged.
+After fixing a missing renderer/font, toggle OFF/ON to retry; opacity-only changes do not retry failure.
+
+This image overlay is not a free-space hologram or the future fixed-world-plane classifier. The
+existing absolute image-to-key mapping and flex/MCP press model remain until a separately tested
+spatial input implementation is approved and delivered. See
+[SPATIAL_AIR_KEYBOARD_DESIGN.md](SPATIAL_AIR_KEYBOARD_DESIGN.md).
 
 ## Guided calibration and recognition
 
@@ -109,7 +133,8 @@ Android editor remains the input/result surface and must stay foreground. No Win
 injection is added. The actual large-window readability and emulator host-focus behavior need user tests.
 
 Only explicitly labeled DEBUG DEMO can run while the official vehicle gateway is UNKNOWN. Operational
-Work stays blocked. No vehicle camera/permission or new external library is selected. PC webcam frames
+Work stays blocked. No vehicle camera or new permission is selected. The reviewed Pillow camera/all
+dependency is only for local Unicode/RGBA preview composition, not input authority. PC webcam frames
 stay local and calibration is in memory, not a recording or permanent biometric profile.
 
 Automate calibration separation/failure, two hands, finger identity/order, loss/rearm, repeated/stale

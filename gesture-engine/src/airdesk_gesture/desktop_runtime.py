@@ -5,6 +5,7 @@ import asyncio
 import queue
 import re
 import threading
+from math import isfinite
 from copy import deepcopy
 from pathlib import Path
 from typing import Callable, Iterator
@@ -89,6 +90,14 @@ class DesktopRuntime:
         self.frames: queue.Queue[bytes] = queue.Queue(maxsize=1)
         self.air_frames: queue.Queue[dict | None] = queue.Queue(maxsize=1)
         self._air_lock = threading.Lock()
+        self._preview_lock = threading.Lock()
+        self._camera_keyboard_lock = threading.Lock()
+        self._camera_keyboard_enabled = True
+        self._camera_keyboard_opacity = .4
+        self._camera_keyboard = None
+        self._camera_keyboard_failed = False
+        self._camera_keyboard_announced = False
+        self._preview_bounds = (860, 480)
         self._stop = threading.Event()
         self._samples = LatestSamples()
         self._camera_thread: threading.Thread | None = None
@@ -114,6 +123,8 @@ class DesktopRuntime:
         self._stopping = False
         self._loop = None
         self._server_task = None
+        self._camera_keyboard_failed = False
+        self._camera_keyboard_announced = False
         self.publish_air_frame(None)
         while not self.frames.empty():
             self.frames.get_nowait()
@@ -134,18 +145,68 @@ class DesktopRuntime:
                 pass
             self.air_frames.put_nowait(value)
 
+    @property
+    def camera_keyboard_settings(self) -> tuple[bool, float]:
+        with self._camera_keyboard_lock:
+            return self._camera_keyboard_enabled, self._camera_keyboard_opacity
+
+    def set_camera_keyboard(self, *, enabled: bool | None = None, opacity: float | None = None):
+        """Display preferences only; never alter detector samples or input authority."""
+        if enabled is not None and type(enabled) is not bool:
+            raise ValueError("invalid camera keyboard visibility")
+        if opacity is not None and (type(opacity) not in (int, float) or not isfinite(opacity) or not 0 <= opacity <= 1):
+            raise ValueError("invalid camera keyboard opacity")
+        with self._camera_keyboard_lock:
+            if enabled is not None:
+                if enabled and not self._camera_keyboard_enabled:
+                    self._camera_keyboard_failed = False
+                self._camera_keyboard_enabled = enabled
+            if opacity is not None:
+                self._camera_keyboard_opacity = float(opacity)
+
+    def set_preview_bounds(self, width: int, height: int):
+        """Fit the complete image/keyboard into the actual Tk preview allocation."""
+        if type(width) is not int or type(height) is not int or width <= 0 or height <= 0:
+            raise ValueError("invalid preview allocation")
+        with self._camera_keyboard_lock:
+            self._preview_bounds = (min(width, 860), min(height, 480))
+
     def _preview(self, frame):
+        if self._stop.is_set():
+            return
         import cv2
         height, width = frame.shape[:2]
-        scale = min(860 / width, 480 / height, 1.0)
+        with self._camera_keyboard_lock:
+            max_width, max_height = self._preview_bounds
+        scale = min(max_width / width, max_height / height, 1.0)
         if scale < 1:
-            frame = cv2.resize(frame, (int(width * scale), int(height * scale)))
+            frame = cv2.resize(frame, (max(1, int(width * scale)), max(1, int(height * scale))))
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         height, width = rgb.shape[:2]
-        ppm = f"P6\n{width} {height}\n255\n".encode("ascii") + rgb.tobytes()
-        try:
-            self.frames.put_nowait(ppm)
-        except queue.Full:
+        pixels = rgb.tobytes()
+        enabled, opacity = self.camera_keyboard_settings
+        if enabled and not self._camera_keyboard_failed:
+            try:
+                if self._camera_keyboard is None:
+                    from .camera_keyboard import CameraKeyboardOverlay
+                    self._camera_keyboard = CameraKeyboardOverlay()
+                composited = self._camera_keyboard.render_rgb(width, height, pixels, opacity=opacity)
+                if not isinstance(composited, bytes) or len(composited) != width * height * 3:
+                    raise ValueError("invalid optional preview output")
+                pixels = composited
+                if not self._camera_keyboard_announced:
+                    self.notify("camera_keyboard", "초록색 키보드 겹쳐보기 · 선과 글자만 표시 · 입력 결과는 Android 앱에서 확인")
+                    self._camera_keyboard_announced = True
+            except Exception:
+                # Optional visualization cannot stop capture or change recognition.
+                # Do not expose exception strings, local paths or camera pixels.
+                self._camera_keyboard_failed = True
+                self._camera_keyboard = None
+                self.notify("camera_keyboard", "키보드 겹쳐보기 준비 실패 · 카메라는 계속 표시됩니다 · Pillow와 한글 글꼴을 확인하세요")
+        ppm = f"P6\n{width} {height}\n255\n".encode("ascii") + pixels
+        with self._preview_lock:
+            if self._stop.is_set():
+                return
             try:
                 self.frames.get_nowait()
             except queue.Empty:
@@ -155,13 +216,21 @@ class DesktopRuntime:
     def _camera(self, device: int, model: Path):
         error = None
         detected = None
+        quality = None
+        def show_quality(diagnostic):
+            nonlocal quality
+            if diagnostic != quality:
+                quality = diagnostic
+                self.notify("camera_quality", f"미리보기 감지 {diagnostic.detected_hands} · 관절 표시 {diagnostic.displayed_hands} · "
+                            + diagnostic.lines()[1] + " · 타건 유효 여부는 Android 앱에서 확인")
         try:
             import mediapipe as mp
             air_supported = supports_air_handedness(getattr(mp, "__version__", None))
             if not air_supported:
                 self.notify("server", "양손 타건은 MediaPipe Tasks 0.10.5 이상이 필요합니다. 현재는 Phase 1만 사용 가능합니다.")
             frames = landmark_frames(str(model), device, frame_callback=self._preview, stop_event=self._stop,
-                                     max_hands=2 if air_supported else 1)
+                                     max_hands=2 if air_supported else 1,
+                                     draw_preview_diagnostics=False, diagnostics_callback=show_quality)
             try:
                 for sample in frames:
                     if self._stop.is_set():
@@ -214,6 +283,11 @@ class DesktopRuntime:
     def stop(self):
         self._stopping = True
         self._stop.set()
+        with self._preview_lock:
+            try:
+                self.frames.get_nowait()
+            except queue.Empty:
+                pass
         self.publish_air_frame(None)
         self._samples.close()
         loop, task = self._loop, self._server_task

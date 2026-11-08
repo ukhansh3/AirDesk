@@ -19,3 +19,26 @@ jobs:
       - name: Gesture and JSON Schema tests
         working-directory: gesture-engine
         run: python -m unittest discover -s tests -v
+
+  camera-keyboard-headless:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install headless render tools and Hangul font
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk python3-tk
+          python -m pip install -e "./gesture-engine[dev,ws]" "Pillow>=10,<14" "opencv-python-headless>=4.9,<5"
+      - name: Verify real compositing without camera or GUI
+        working-directory: gesture-engine
+        run: |
+          python - <<'PY'
+          import sys
+          import unittest
+          suite = unittest.defaultTestLoader.discover("tests", pattern="test_camera_keyboard*.py")
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          sys.exit(0 if result.wasSuccessful() and result.testsRun > 0 and not result.skipped else 1)
+          PY

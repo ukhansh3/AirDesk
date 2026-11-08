@@ -25,6 +25,7 @@ class DesktopApp:
         self.last_air_payload = None
         self.last_air_received_at = None
         self._air_display_enabled = False
+        self._preview_display_enabled = False
         self.settings_path = project / "gesture-engine" / ".venv" / "airdesk-panel.json"
         settings = {}
         try:
@@ -48,6 +49,10 @@ class DesktopApp:
         self.status = tk.StringVar(value="카메라 번호를 선택하고 시작을 누르세요.")
         self.connection = tk.StringVar(value="앱 연결 안 됨")
         self.tracking = tk.StringVar(value="손 인식 대기")
+        self.camera_keyboard = tk.BooleanVar(value=True)
+        self.keyboard_opacity = tk.DoubleVar(value=.4)
+        self.camera_keyboard_status = tk.StringVar(value="초록색 키보드 겹쳐보기 · 한글/영문 · 키 내부는 투명")
+        self.camera_quality = tk.StringVar(value="미리보기 손 감지/관절 표시 대기")
         self.root.title("AirDesk · PC 카메라")
         self.root.geometry("1040x790")
         self.root.minsize(820, 650)
@@ -75,6 +80,16 @@ class DesktopApp:
         self.keyboard_button = ttk.Button(controls, text="큰 키보드 창", command=self.open_keyboard_window)
         self.keyboard_button.pack(side="right", padx=8)
         ttk.Label(body, text="관절 표시: 떨림 안정화 · 작은 흔들림 억제 · 캠 변경은 중지 → 번호 변경 → 시작").pack(anchor="w", pady=(9, 4))
+        display_controls = ttk.Frame(body)
+        display_controls.pack(fill="x", pady=(0, 4))
+        ttk.Checkbutton(display_controls, text="카메라 키보드 표시", variable=self.camera_keyboard,
+                        command=self.update_camera_keyboard).pack(side="left")
+        ttk.Label(display_controls, text="선 농도").pack(side="left", padx=(16, 6))
+        ttk.Scale(display_controls, from_=.15, to=.8, variable=self.keyboard_opacity,
+                  command=lambda _: self.update_camera_keyboard(), length=160).pack(side="left")
+        ttk.Label(display_controls, text="옅게 ← → 진하게").pack(side="left", padx=8)
+        ttk.Label(body, textvariable=self.camera_keyboard_status, foreground="#80dca9").pack(anchor="w")
+        ttk.Label(body, textvariable=self.camera_quality, wraplength=960, foreground="#9eb1d7").pack(anchor="w")
         try:
             read_app_token(project)
             token_status = "앱 연결 설정: 기존 토큰 자동 불러옴"
@@ -82,8 +97,9 @@ class DesktopApp:
             token_status = "앱 연결 설정: Android 개발 토큰 설정이 필요합니다"
         ttk.Label(body, text=token_status, foreground="#9eb1d7").pack(anchor="w")
         self.preview = tk.Label(body, text="시작을 누르면 이곳에 실시간 웹캠 영상과 손 관절이 표시됩니다.",
-                                bg="#162842", fg="#b9cce6", font=("맑은 고딕", 12))
+                                bg="#162842", fg="#b9cce6", font=("맑은 고딕", 12), width=1, height=1)
         self.preview.pack(fill="both", expand=True, pady=14)
+        self.preview.bind("<Configure>", lambda event: self.runtime.set_preview_bounds(max(1, event.width-4), max(1, event.height-4)))
         ttk.Label(body, textvariable=self.status, wraplength=960).pack(anchor="w")
         ttk.Label(body, textvariable=self.connection, foreground="#a78bfa").pack(anchor="w", pady=(5, 0))
         ttk.Label(body, textvariable=self.tracking).pack(anchor="w", pady=(5, 0))
@@ -96,6 +112,12 @@ class DesktopApp:
         path = filedialog.askopenfilename(title="MediaPipe 손 인식 모델 선택", filetypes=[("MediaPipe model", "*.task")])
         if path:
             self.model.set(path)
+
+    def update_camera_keyboard(self):
+        enabled = self.camera_keyboard.get()
+        self.runtime.set_camera_keyboard(enabled=enabled, opacity=self.keyboard_opacity.get())
+        self.camera_keyboard_status.set("초록색 키보드 겹쳐보기 · 한글/영문 · 키 내부는 투명" if enabled
+                                        else "키보드 겹쳐보기 꺼짐 · 손 관절과 카메라 영상만 표시")
 
     def open_keyboard_window(self):
         from .keyboard_preview import KeyboardPreviewWindow, STALE_SECONDS
@@ -140,6 +162,7 @@ class DesktopApp:
             return
         self._clear_air_preview()
         self._air_display_enabled = True
+        self._preview_display_enabled = True
         try:
             self.settings_path.write_text(json.dumps({"device": device, "model": self.model.get()}), encoding="utf-8")
         except OSError:
@@ -153,6 +176,7 @@ class DesktopApp:
         self.connection.set("앱 연결 준비 중")
 
     def stop(self):
+        self._preview_display_enabled = False
         self._air_display_enabled = False
         self._clear_air_preview()
         self.runtime.stop()
@@ -185,13 +209,18 @@ class DesktopApp:
                     "disconnected": "앱 연결 종료 · 앱에서 다시 연결하세요. 허공 타이핑은 재보정이 필요합니다.",
                     "rejected": "앱 토큰 불일치 · Android Studio에서 앱을 다시 빌드·실행해 주세요.",
                 }.get(text, text))
+            elif kind == "camera_keyboard":
+                self.camera_keyboard_status.set(text)
+            elif kind == "camera_quality":
+                self.camera_quality.set(text)
         try:
             ppm = self.runtime.frames.get_nowait()
         except queue.Empty:
             pass
         else:
-            self.photo = tk.PhotoImage(data=ppm, format="PPM")
-            self.preview.configure(image=self.photo, text="")
+            if self._preview_display_enabled:
+                self.photo = tk.PhotoImage(data=ppm, format="PPM")
+                self.preview.configure(image=self.photo, text="")
         self._poll_air_frames()
         if self.was_busy and not self.runtime.busy:
             self.was_busy = False
@@ -201,9 +230,11 @@ class DesktopApp:
             self.stop_button.configure(state="disabled")
             self.preview.configure(image="", text="카메라가 중지됐습니다. 번호를 선택하고 다시 시작할 수 있습니다.")
             self.photo = None
+            self._preview_display_enabled = False
             self.status.set(self.last_error or "중지됨 · 카메라 번호와 모델 선택은 다음 실행에도 기억됩니다.")
             self.connection.set("앱 연결 안 됨")
             self.tracking.set("손 인식 대기")
+            self.camera_quality.set("미리보기 손 감지/관절 표시 대기")
             self._air_display_enabled = False
             self._clear_air_preview()
         if self.closing_at is not None and (not self.runtime.busy or time.monotonic() - self.closing_at > 3):

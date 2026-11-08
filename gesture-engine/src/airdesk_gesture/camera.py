@@ -122,6 +122,8 @@ def landmark_frames(
     frame_callback: Callable[[object], None] | None = None,
     stop_event: Event | None = None,
     max_hands: int = 1,
+    draw_preview_diagnostics: bool = True,
+    diagnostics_callback: Callable[[object], None] | None = None,
 ) -> Iterator[CameraSample]:
     if type(max_hands) is not int or max_hands not in (1, 2):
         raise ValueError("max_hands must be 1 or 2")
@@ -231,7 +233,9 @@ def landmark_frames(
                 else:
                     overlay.update((), now)
                     sample = CameraSample(now, None)
-                if preview or frame_callback is not None:
+                if diagnostics_callback is not None:
+                    diagnostics_callback(overlay.diagnostics)
+                if draw_preview_diagnostics and (preview or frame_callback is not None):
                     # Local counts/coded preview guards only. These do not report
                     # AIR acceptance or landmark accuracy and never enter the wire.
                     for line_number, line in enumerate(overlay.diagnostics.lines()):

@@ -2,6 +2,10 @@
 
 Date: 2026-11-07. Status: accepted for isolated DEBUG DEMO implementation; hardware accuracy unverified.
 
+Follow-up: [ADR-007](ADR-007-SINGLE-WEBCAM-KEYBOARD-OVERLAY.md) records the approved one-webcam
+research direction and PC-only transparent bilingual keyboard reference, including its reviewed
+Pillow display dependency. The original v0.2 classifier and protocol below remain preserved.
+
 The user clarified that a single pointer selecting keys is insufficient: both hands/all ten fingers
 should tap in midair, with a full keyboard and mouse area visible together. They approved proceeding
 with the calibrated flex/release proposal and explicitly requested a spec before implementation if useful.

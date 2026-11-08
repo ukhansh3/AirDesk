@@ -21,6 +21,26 @@ calibrated implementation** under [AIR_TYPING_SPEC.md](AIR_TYPING_SPEC.md), sepa
 index/Pinch profile. Actual webcam typing accuracy is **NOT_VERIFIED**; see the
 [AIR handoff](../testing/AIR_TYPING_HANDOFF.md) for automated results and manual calibration tests.
 
+### Live PC camera wireframe (2026-11-08)
+
+The user approved the existing single-RGB-webcam experiment and a green line/text keyboard reference
+on the PC's live camera image. Reuse all 81 existing key rectangles plus the mouse region; the 26
+letter keys have English and two-set Hangul labels. Outline/glyph opacity defaults to 40% and the PC
+control spans 15–80%; key/panel backgrounds remain fully transparent. The display checkbox defaults ON.
+
+This PC reference is composed after MediaPipe input using reviewed Pillow `>=10,<14` camera/all
+extras and the installed Windows Malgun font, with no redistributed fonts. Missing renderer/font
+support disables the optional overlay with an explanation while existing camera recognition continues.
+See [ADR-007](../decisions/ADR-007-SINGLE-WEBCAM-KEYBOARD-OVERLAY.md).
+The Run-AirDesk panel places guard captions outside the video and fits the full keyboard image to
+the allocated preview. The separate OpenCV CLI preview is unchanged. Explicit OFF/ON retries a fixed
+font/dependency failure; moving opacity alone does not. Actual camera/GUI rendering remains NOT_RUN.
+
+The Android dock/editor, active language/composition, key actions and v0.1/v0.2 contracts do not change.
+The green image-space rectangles do not add measured world-space contact, HOME/hand-follow mapping,
+v0.3 input or a physical hologram. Actual typing accuracy and webcam readability remain
+manual gates under [the spatial design](SPATIAL_AIR_KEYBOARD_DESIGN.md).
+
 **This is NOT a mobile phone keypad or a compact chat keyboard.** The intended experience is a **desktop-PC-style full QWERTY keyboard rendered on the PLEOS Work display**, operable without a physical keyboard. The keyboard must use a recognizably desktop-like multi-row arrangement, with keys clearly labeled and usable via both touch and AirDesk's gesture cursor. Do not satisfy this requirement merely by displaying the standard phone IME.
 
 The target is **desktop-style interaction inside AirDesk-owned Android/Compose work screens**, not Windows OS control or globally injected key presses. A PLEOS/Android IME may provide text composition under the hood, but the visible interface must be a PC-style keyboard. Any platform constraints preventing a custom Compose keyboard or correct Korean composition must be reported rather than silently substituting a mobile layout.

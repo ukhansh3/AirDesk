@@ -41,6 +41,12 @@ checks outside the restricted agent environment before treating the integration 
 
 ## Read first
 
+The current one-webcam experiment adds a green English/Hangul outline keyboard to the local PC
+camera preview. Key interiors remain transparent; visibility and opacity are adjustable. It is
+an image-space reference, not verified spatial contact sensing. See
+[ADR-007](docs/decisions/ADR-007-SINGLE-WEBCAM-KEYBOARD-OVERLAY.md) and the
+[AIR handoff](docs/testing/AIR_TYPING_HANDOFF.md) for implementation and manual checks.
+
 1. [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md)
 2. [AGENTS.md](AGENTS.md)
 3. [Architecture](docs/architecture/SYSTEM_DESIGN.md)

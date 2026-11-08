@@ -2,6 +2,17 @@
 
 ## Active revised Phase 2
 
+The approved next experiment uses **one existing PC RGB webcam**. The camera panel shows a green
+outline keyboard with English/Korean labels over the live preview, with transparent key interiors.
+Use **카메라 키보드 표시** and **선 농도** to control it. This is a local image-space reference;
+fixed spatial plane/contact sensing is not implemented by drawing the overlay. See
+[ADR-007](docs/decisions/ADR-007-SINGLE-WEBCAM-KEYBOARD-OVERLAY.md) and the
+[spatial keyboard design](docs/features/SPATIAL_AIR_KEYBOARD_DESIGN.md).
+The camera extras now explicitly include Pillow for Unicode/alpha composition. Existing Windows
+Malgun Gothic is read locally; no font is bundled. Install the documented camera extra if Pillow
+is absent. A missing font/dependency disables only the keyboard overlay and leaves camera capture
+available. Neither the preview nor the automated verification starts a new emulator or OS input.
+
 Reuse the Phase 1 `Run-AirDesk.cmd` camera panel and existing debug token in ignored local.properties.
 Run the debug Android app, open **데스크톱 DEMO**, connect the camera and explicitly enable gestures.
 Use the app's PC keyboard and registered work targets; all actions remain local to this DEMO.
