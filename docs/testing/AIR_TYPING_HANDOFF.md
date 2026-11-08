@@ -472,8 +472,12 @@ interior backgrounds remained unchanged and guard captions no longer covered the
 This is a synthetic pipeline render review, not an actual webcam/Tk screenshot or typing test.
 
 The new isolated Ubuntu headless CI job installs Noto CJK/Tk, Pillow and OpenCV-headless for real
-Unicode/alpha tests and rejects skipped renderer tests. The remote GitHub job is **NOT_RUN** until
-GitHub executes it after delivery; local Windows tests do not prove that remote job passed.
+Unicode/alpha tests and rejects skipped renderer tests. After the code was pushed, GitHub
+[run48](https://github.com/ukhansh3/AirDesk/actions/runs/42453954580) completed **SUCCESS** on
+2026-11-08T06:15:28Z for source commit `2fabe39238b05cacd880f38a06b6a62de8cb4444`.
+Both `python-tests` and `camera-keyboard-headless`, including font/tool installation and real
+composition checks, completed successfully. This remote Ubuntu result is separate from the local
+Windows/Pillow/Malgun execution above; neither run opens a camera or establishes hardware accuracy.
 
 Actual webcam/GUI/Pillow-font readability, live resize/focus/performance and Android manual regressions
 remain **NOT_RUN**. No new fixed-world press classifier, hologram or protocol profile is verified by
