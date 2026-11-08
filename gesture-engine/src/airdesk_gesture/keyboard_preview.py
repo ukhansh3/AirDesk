@@ -184,7 +184,7 @@ def calibration_text(state):
     detail = {"COUNTDOWN": "기본 자세로 준비", "CAPTURING": "자세를 유지하세요 · 자동 확인 중",
               "FAILED": "기본 자세로 돌아와 다시 시도", "WAITING": "이 손가락만 키를 누르듯 아래로 움직이세요" if state.stage != "NEUTRAL"
               else "앱에서 자동 보정 시작 · 안내에 따라 양손 기본 자세 유지"}.get(state.status, "앱의 안내를 확인하세요")
-    if len(state.fingers) < 10 and state.status != "COUNTDOWN": detail = f"손끝 {len(state.fingers)}/10 · 양손과 열 손가락이 모두 보여야 합니다"
+    if len(state.fingers) < 10 and state.status != "COUNTDOWN": detail = f"손끝 {len(state.fingers)}/10 · 카메라 신호와 양손 인식 대기 · 완료 단계 유지"
     return f"보정 {index}/11 · {pose} · {detail}"
 
 

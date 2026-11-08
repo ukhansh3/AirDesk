@@ -77,6 +77,27 @@ does not transfer right-hand ownership. Input cancels on tracking/connection los
 - App delivers accepted frames synchronously to the controller, not via conflating StateFlow alone.
   A separate local stale watchdog cancels input even when network callbacks stop arriving.
 
+### Same-connection calibration pause (2026-11-08)
+
+A short capture/inference or transport delay must cancel input without restarting completed calibration
+poses. Keep the 250ms input freshness bound. Within the same authenticated connection and source epoch,
+a strictly increasing, nonfuture camera timestamp older than 250ms is discarded; the server publishes
+an empty, unarmed state preserving stage/epoch/completed models. A pending camera read uses the same
+pause. Discard the unfinished sampling window and require fresh neutral before continuing that stage.
+This is an internal engine operation, not a new wire command or relaxed press threshold.
+
+The client may keep automatic-calibration intent and display-only progress during temporary silence
+only after an explicit start has been confirmed for that session/epoch and input is unarmed. Clear
+all local keys/mouse and remove the old frame immediately. Never redisplay stale fingertip/press data.
+Fully validated duplicate wire frames are dropped without delivery or watchdog renewal; a stale valid
+new frame releases input. Malformed/session-invalid data cancels calibration and disarms. Armed or
+pending-arm input loss revokes consent and requires explicit re-enable; recovery never issues arm.
+
+Invalid/future/repeated/regressing raw capture clocks still terminate the source connection. Actual
+disconnect, authentication loss, replacement epoch, camera change or explicit cancel/reset must not
+restore calibration automatically. Reconnection reports that fresh calibration is required. No disk
+profile/cache or cross-session restoration is introduced. Hardware comfort and delay remain manual gates.
+
 ## Scope and verification
 
 For development, the user chose a **PC large-keyboard reference window**. The existing PC panel exposes

@@ -235,7 +235,7 @@ fun DesktopWorkspace(
                     airMouse.accept(signal.value, enabled, now).forEach { router.accept(it, now) }
                 }
                 is AirSignal.Cancel -> {
-                    automaticCalibration = false
+                    if (!signal.retainCalibration) automaticCalibration = false
                     airController.cancel(signal.reason); keyboard.resetTransient(clearFocus = false)
                     airMouse.reset(); router.setDemoEnabled(false)
                 }
@@ -344,10 +344,14 @@ fun DesktopWorkspace(
                         verticalArrangement = Arrangement.spacedBy(5.dp)) { tools() }
                 }
                 if (airMode) {
-                    val prompt = AirCalibrationGuide.prompt(airState.frame, automaticCalibration, calibrationPreviousEpoch)
+                    val prompt = AirCalibrationGuide.prompt(airState.frame, automaticCalibration, calibrationPreviousEpoch,
+                        airState.retainedCalibrationStage, airState.calibrationPaused)
                     Text(if (airState.authorized) prompt.title else airState.status,
                         color = DeskAccent, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 1)
                     Text(prompt.detail, color = Color(0xFFAFC3DF), fontSize = 12.sp, lineHeight = 17.sp, maxLines = 2)
+                    airState.disconnectReason?.let { reason ->
+                        Text(reason, color = Color(0xFFFFCB7D), fontSize = 12.sp, lineHeight = 17.sp, maxLines = 2)
+                    }
                     if (airState.frame?.stage == "READY") {
                         Text(airController.snapshot.status, color = if (airController.snapshot.enabled) Color(0xFF9FE3C1)
                             else Color(0xFFFFCB7D), fontSize = 12.sp, lineHeight = 17.sp, maxLines = 2)

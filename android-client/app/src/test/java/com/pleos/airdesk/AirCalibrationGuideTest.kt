@@ -4,6 +4,23 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AirCalibrationGuideTest {
+    @Test fun transientSilenceShowsRetainedStageWithoutReusingFingerInput() {
+        val prompt = AirCalibrationGuide.prompt(null, true, retainedStage = "LEFT_THUMB", paused = true)
+        assertTrue(prompt.title.startsWith("2/11"))
+        assertEquals(1, prompt.completedSteps)
+        assertTrue(prompt.detail.contains("단계 유지"))
+        assertFalse(prompt.detail.contains("시작을"))
+        assertEquals(0, AirCalibrationGuide.prompt(null, false, retainedStage = "LEFT_THUMB", paused = true).completedSteps)
+        assertEquals(0, AirCalibrationGuide.prompt(null, true, retainedStage = "READY", paused = true).completedSteps)
+        assertEquals(0, AirCalibrationGuide.prompt(null, true, retainedStage = "LEFT_THUMB", paused = false).completedSteps)
+    }
+    @Test fun pendingStartWaitsWithoutInventingConfirmedProgress() {
+        val prompt = AirCalibrationGuide.prompt(null, true, paused = true)
+        assertTrue(prompt.title.contains("시작 응답 대기"))
+        assertEquals(0, prompt.completedSteps)
+        assertFalse(prompt.title.contains("1/11"))
+        assertTrue(AirCalibrationGuide.prompt(null, false, paused = true).title.contains("연결"))
+    }
     private fun frame(stage: String, status: String) = AirFrame("epoch", stage, status, false,
         listOf("left", "right").flatMap { side -> listOf("thumb", "index", "middle", "ring", "little")
             .map { finger -> AirFinger(side, finger, .3f, .4f, false, true) } },

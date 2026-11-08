@@ -169,7 +169,7 @@ class DesktopRuntime:
                     self._samples.publish(sample)
                     tracking = len(sample.hands) if sample.hands else int(sample.landmarks is not None)
                     if tracking != detected:
-                        self.notify("tracking", f"손 {tracking}개 인식 · 앱에서 입력 모드 선택" if tracking else "양손을 카메라 앞에 보여 주세요")
+                        self.notify("tracking", f"카메라 손 {tracking}개 감지 · 타건 유효 여부는 앱에서 확인" if tracking else "카메라 손 감지 없음 · 양손을 카메라 앞에 보여 주세요")
                         detected = tracking
                     if sample.loss_reason != "hand_not_detected":
                         self.notify("error", "카메라 영상 수신이 중단됐습니다. 다른 앱의 카메라 점유 상태를 확인해 주세요.")

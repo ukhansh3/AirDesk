@@ -180,6 +180,8 @@ class DesktopApp:
                 self.connection.set({
                     "listening": "연결 준비 완료 · 앱의 ‘양손 열손가락 → 연결’ 또는 Phase 1 진단 연결",
                     "connected": "Android 앱 연결됨 · 좌표/제스처 전송 중",
+                    "air_capture_waiting": "카메라 처리 지연 · 보정 단계 유지 · 입력 해제 후 신호 대기",
+                    "air_capture_resumed": "카메라 신호 복구 · 같은 보정 단계에서 계속 · 타건은 명시적으로 켜세요",
                     "disconnected": "앱 연결 종료 · 앱에서 다시 연결하세요. 허공 타이핑은 재보정이 필요합니다.",
                     "rejected": "앱 토큰 불일치 · Android Studio에서 앱을 다시 빌드·실행해 주세요.",
                 }.get(text, text))

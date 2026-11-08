@@ -231,6 +231,12 @@ def landmark_frames(
                 else:
                     overlay.update((), now)
                     sample = CameraSample(now, None)
+                if preview or frame_callback is not None:
+                    # Local counts/coded preview guards only. These do not report
+                    # AIR acceptance or landmark accuracy and never enter the wire.
+                    for line_number, line in enumerate(overlay.diagnostics.lines()):
+                        cv2.putText(frame, line, (12, 50 + line_number * 20),
+                                    cv2.FONT_HERSHEY_SIMPLEX, .45, (230, 220, 170), 1)
                 if frame_callback is not None:
                     frame_callback(frame)
                 yield sample

@@ -7,8 +7,17 @@ object AirCalibrationGuide {
     private val stages = listOf("NEUTRAL") + listOf("LEFT", "RIGHT").flatMap { side ->
         listOf("THUMB", "INDEX", "MIDDLE", "RING", "LITTLE").map { "${side}_$it" }
     }
-    fun prompt(frame: AirFrame?, running: Boolean, previousEpoch: String? = null): AirCalibrationPrompt {
-        if (frame == null) return AirCalibrationPrompt("카메라 연결을 확인하세요", "연결 후 자동 보정 시작을 한 번 누르세요", 0)
+    fun prompt(frame: AirFrame?, running: Boolean, previousEpoch: String? = null,
+               retainedStage: String? = null, paused: Boolean = false): AirCalibrationPrompt {
+        if (frame == null) {
+            val index = stages.indexOf(retainedStage)
+            if (running && paused && index >= 0) return AirCalibrationPrompt(
+                "${index + 1}/11 · ${pose(retainedStage!!)}",
+                "카메라 신호 일시 대기 · 완료한 보정 단계 유지 · 신호가 돌아오면 같은 단계에서 계속합니다", index)
+            if (running && paused && retainedStage == null) return AirCalibrationPrompt(
+                "자동 보정 시작 응답 대기", "카메라 신호를 기다리고 있습니다 · 확인된 단계가 올 때까지 입력은 해제됩니다", 0)
+            return AirCalibrationPrompt("카메라 연결을 확인하세요", "연결 후 자동 보정 시작을 한 번 누르세요", 0)
+        }
         if (running && previousEpoch != null && frame.epoch == previousEpoch)
             return AirCalibrationPrompt("자동 보정 시작 중", "곧 5초 준비 시간이 시작됩니다 · 양손을 기본 자세로 가져오세요", 0)
         if (frame.stage == "READY") return AirCalibrationPrompt("보정 완료 · 11/11", "메모 입력 선택 → 타건 켜기 · 기준 자세로 돌아온 뒤 입력", 11)
@@ -19,7 +28,7 @@ object AirCalibrationGuide {
         val visibleHands = frame.fingers.filter { it.valid }.map { it.hand }.toSet().size
         val visibleFingers = frame.fingers.count { it.valid }
         if (frame.status != "COUNTDOWN" && (visibleHands < 2 || visibleFingers < 10)) return AirCalibrationPrompt(heading,
-            "손 $visibleHands/2 · 손끝 $visibleFingers/10 감지 · 양손과 열 손가락이 모두 보여야 합니다 · 자동으로 기다리는 중입니다", index)
+            "손 $visibleHands/2 · 손끝 $visibleFingers/10 감지 · 카메라 신호와 양손 인식 대기 · 완료한 단계는 유지하며 자동으로 기다리는 중입니다", index)
         val detail = when (frame.status) {
             "COUNTDOWN" -> if (frame.stage == "NEUTRAL") "5초 준비 시간 · 양손을 카메라 앞으로 가져오고 기본 자세를 유지하세요"
                 else "손가락을 기본 자세로 되돌리세요 · 안정되면 다음 동작을 안내합니다"

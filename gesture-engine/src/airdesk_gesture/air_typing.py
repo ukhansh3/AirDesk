@@ -160,6 +160,32 @@ class AirTypingEngine:
             self._capture_invalid = False
             self.status = "COUNTDOWN"
 
+    def pause_source(self, now_ms: int) -> dict:
+        """Cancel input for a transient source gap within the SAME live session.
+
+        Unlike the user's explicit disarm/cancel command, this retains automatic
+        calibration intent, its completed poses and its epoch. Only the current
+        incomplete capture and held/neutral/XY state are discarded. A fresh neutral
+        pose is needed before the same calibration stage can resume; typing never
+        rearms automatically. This is an internal API, not a new wire command or
+        permission to restore state across a camera/authenticated connection change.
+        """
+        if type(now_ms) is not int or now_ms < 0:
+            raise ValueError("invalid source pause time")
+        # A timeout can coincide with an accepted frame or another timeout. Always
+        # replace any cached held payload, even for an equal/backward caller clock.
+        self._last_ms = max(self._last_ms + 1, now_ms)
+        self.armed = False
+        self._release_all()
+        self._capture_at = None
+        self._clear_auto_window()
+        self._auto_neutral_since = None
+        self._auto_ready = False
+        self._auto_ready_since = self._last_ms
+        self.status = "READY" if self.stage == "READY" else "WAITING"
+        self._last_payload = self._payload({}, {})
+        return self._last_payload
+
     @staticmethod
     def _folding(points: tuple[tuple[float, float, float], ...], indexes: tuple[int, ...]) -> float:
         chain = [points[i] for i in indexes]

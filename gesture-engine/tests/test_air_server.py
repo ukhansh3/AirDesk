@@ -6,12 +6,14 @@ from contextlib import suppress
 import json
 from pathlib import Path
 import socket
+from threading import Event
 from time import monotonic, sleep
 import unittest
 
 from jsonschema import Draft202012Validator
 from airdesk_gesture.camera import CameraSample
 from airdesk_gesture.ws_server import serve
+from test_air_typing import observed
 
 try:
     from websockets.asyncio.client import connect
@@ -294,23 +296,92 @@ class AirServerIntegrationTests(unittest.IsolatedAsyncioTestCase):
             await self.authenticate(replacement)
             self.assertFalse((await self.frame_until(replacement))["payload"]["armed"])
 
-    async def test_old_future_and_repeated_capture_timestamps_cannot_be_reenveloped_as_fresh(self):
-        for fault in ("old", "future", "repeated"):
+    async def test_future_repeated_regressing_and_malformed_capture_timestamps_close(self):
+        for fault in ("future", "repeated", "regressing", "malformed"):
             with self.subTest(fault=fault):
                 def fake_frames():
                     now = int(monotonic() * 1000)
-                    if fault == "old": yield CameraSample(now - 5000, None)
-                    elif fault == "future": yield CameraSample(now + 5000, None)
+                    if fault == "future": yield CameraSample(now + 5000, None)
+                    elif fault == "malformed": yield CameraSample(True, None)
                     else:
                         yield CameraSample(now, None)
-                        yield CameraSample(now, None)
+                        yield CameraSample(now if fault == "repeated" else now - 1, None)
                 await self.start_server(source="camera", model="synthetic-not-a-real-model.task", frame_factory=fake_frames)
                 async with connect(self.url + "/air") as ws:
                     await self.authenticate(ws)
-                    if fault == "repeated": await self.frame_until(ws)
+                    if fault in ("repeated", "regressing"): await self.frame_until(ws)
                     # Capture age/order must be checked before giving cached landmarks a
                     # new source timestamp/sequence, which would hide staleness from Android.
                     await self.assert_closed(ws, code=1011, allow_frames=False)
+
+    async def test_soft_capture_delay_preserves_automatic_progress_without_stale_input(self):
+        delay_requested, delayed_sample_returned, stop = Event(), Event(), Event()
+        thumb_pose, index_pose = Event(), Event()
+
+        def fake_frames():
+            while not stop.is_set():
+                sleep(.02)
+                captured_at = int(monotonic() * 1000)
+                pose = ("index",) if index_pose.is_set() else ("thumb",) if thumb_pose.is_set() else ()
+                hands = (observed("left", pose), observed("right"))
+                if delay_requested.is_set() and not delayed_sample_returned.is_set():
+                    # The timestamp increases normally but the sample completes
+                    # after the 250ms input window: model a slow inference/read return.
+                    sleep(.35)
+                    delayed_sample_returned.set()
+                yield CameraSample(captured_at, None, hands=hands)
+
+        await self.start_server(source="camera", model="synthetic-not-a-real-model.task", frame_factory=fake_frames)
+        try:
+            async with connect(self.url + "/air") as ws:
+                accepted = await self.authenticate(ws)
+                session = accepted["sessionId"]
+                await self.send_command(ws, session, 1, "start_calibration")
+                completed_neutral = await self.frame_until(ws, lambda p: p["stage"] == "LEFT_THUMB", timeout=8)
+                epoch = completed_neutral["payload"]["epoch"]
+                self.assertEqual(len(completed_neutral["payload"]["fingers"]), 10)
+                self.assertFalse(completed_neutral["payload"]["armed"])
+
+                delay_requested.set()
+                paused = await self.frame_until(ws, lambda p: p["fingers"] == [], timeout=2)
+                self.assertEqual(paused["sessionId"], session)
+                self.assertEqual(paused["payload"]["epoch"], epoch)
+                self.assertEqual(paused["payload"]["stage"], "LEFT_THUMB")
+                self.assertFalse(paused["payload"]["armed"])
+                self.assertFalse(paused["payload"]["mouse"]["pressed"])
+                self.assertGreater(paused["sequence"], completed_neutral["sequence"])
+
+                resumed = await self.frame_until(ws, lambda p: len(p["fingers"]) == 10 and
+                                                 p["stage"] == "LEFT_THUMB" and p["status"] == "WAITING", timeout=3)
+                self.assertTrue(delayed_sample_returned.is_set())
+                self.assertEqual(resumed["sessionId"], session)
+                self.assertEqual(resumed["payload"]["epoch"], epoch)
+                self.assertFalse(resumed["payload"]["armed"])
+                thumb_pose.set()
+                progressed = await self.frame_until(ws, lambda p: p["stage"] == "LEFT_INDEX", timeout=3)
+                self.assertEqual(progressed["sessionId"], session)
+                self.assertEqual(progressed["payload"]["epoch"], epoch)
+                self.assertFalse(progressed["payload"]["armed"])
+                self.assertTrue(all(not f["pressed"] for f in progressed["payload"]["fingers"]))
+
+                # Explicit cancel has a different meaning from transient source delay.
+                await self.send_command(ws, session, 2, "disarm")
+                thumb_pose.clear()
+                cancelled = await self.frame_until(ws, lambda p: p["status"] == "WAITING" and p["stage"] == "LEFT_INDEX")
+                self.assertEqual(cancelled["payload"]["epoch"], epoch)
+                for pose_event, duration in ((None, .85), (index_pose, .7)):
+                    if pose_event is not None: pose_event.set()
+                    deadline = monotonic() + duration
+                    while monotonic() < deadline:
+                        current = await self.frame_until(ws)
+                        self.assertEqual(current["sessionId"], session)
+                        self.assertEqual(current["payload"]["epoch"], epoch)
+                        self.assertEqual(current["payload"]["stage"], "LEFT_INDEX")
+                        self.assertEqual(current["payload"]["status"], "WAITING")
+                        self.assertFalse(current["payload"]["armed"])
+                        self.assertFalse(any(f["pressed"] for f in current["payload"]["fingers"]))
+        finally:
+            stop.set()
 
 
 if __name__ == "__main__":

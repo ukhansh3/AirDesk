@@ -19,6 +19,9 @@ class AirTypingProtocolTest {
                 .put("active", false).put("valid", false).put("x", .5).put("y", .5).put("pressed", false).put("dragging", false)))
     private fun finger() = JSONObject().put("hand", "left").put("finger", "index")
         .put("x", .3).put("y", .4).put("valid", true).put("pressed", false)
+    private fun calibration(seq: Int = 1, epoch: String = "epoch-a") = frame(seq, epoch).also {
+        it.getJSONObject("payload").put("stage", "LEFT_RING").put("status", "WAITING")
+    }
 
     @Test fun explicitAuthenticationAndCompleteFrameAreRequired() {
         val p = protocol()
@@ -66,5 +69,60 @@ class AirTypingProtocolTest {
         assertNull(p.consume(frame(2).put("timestampMs", 119).toString(), 10040))
         p.reset()
         assertNull(p.consume(frame(3).toString(), 1060))
+    }
+
+    @Test fun validReplayIsIgnoredWithoutReleasingInputOrAdvancingFreshness() {
+        val p = protocol(); auth(p)
+        assertNotNull(p.consume(frame().toString(), 1020))
+        assertNull(p.consume(frame().toString(), 1600))
+        assertEquals(AirMessageRejection.IGNORE, p.lastRejection)
+        assertNotNull(p.consume(frame(2).toString(), 1040))
+        assertEquals(AirMessageRejection.NONE, p.lastRejection)
+    }
+
+    @Test fun staleValidFramesAreClassifiedWithoutPoisoningSequenceEpochOrSourceTime() {
+        val p = protocol(); auth(p)
+        assertNotNull(p.consume(calibration().toString(), 1020))
+        assertNull(p.consume(calibration(2).toString(), 1400))
+        assertEquals(AirMessageRejection.STALE, p.lastRejection)
+        assertNotNull(p.consume(calibration(2).toString(), 1040))
+        assertNull(p.consume(calibration(3).put("timestampMs", 1039).toString(), 1060))
+        assertEquals(AirMessageRejection.STALE, p.lastRejection)
+        assertNotNull(p.consume(calibration(3).toString(), 1060))
+    }
+
+    @Test fun malformedSessionAndSemanticFailuresCannotMasqueradeAsStaleOrReplay() {
+        val p = protocol(); auth(p)
+        assertNotNull(p.consume(frame().toString(), 1020))
+        val badDuplicate = frame().put("extra", true)
+        assertNull(p.consume(badDuplicate.toString(), 1600))
+        assertEquals(AirMessageRejection.INVALID, p.lastRejection)
+        assertNull(p.consume(frame(2).put("sessionId", "other-session").toString(), 1600))
+        assertEquals(AirMessageRejection.INVALID, p.lastRejection)
+        val badSemantic = frame(2)
+        badSemantic.getJSONObject("payload").getJSONArray("fingers").put(finger().put("pressed", true))
+        assertNull(p.consume(badSemantic.toString(), 1600))
+        assertEquals(AirMessageRejection.INVALID, p.lastRejection)
+        assertNotNull(p.consume(frame(2).toString(), 1040))
+    }
+
+    @Test fun staleArmedCompletionOrDifferentEpochCannotRetainCalibration() {
+        val p = protocol(); auth(p)
+        assertNotNull(p.consume(calibration().toString(), 1020))
+        for (unsafe in listOf(frame(2, armed = true), frame(2), calibration(2, "new-epoch"))) {
+            assertNull(p.consume(unsafe.toString(), 1400))
+            assertEquals(AirMessageRejection.INVALID, p.lastRejection)
+        }
+        assertNotNull(p.consume(calibration(2).toString(), 1040))
+    }
+
+    @Test fun futureTimestampsAreInvalidEvenOnADuplicateAndDoNotAdvanceState() {
+        val p = protocol(); auth(p)
+        assertNotNull(p.consume(calibration().toString(), 1020))
+        for (seq in listOf(1, 2)) {
+            assertNull(p.consume(calibration(seq).put("timestampMs", 2000).toString(), 1040))
+            assertEquals(AirMessageRejection.INVALID, p.lastRejection)
+        }
+        assertNotNull(p.consume(calibration(2).toString(), 1040))
     }
 }

@@ -429,3 +429,75 @@ class AirTypingTests(unittest.TestCase):
         # shape oscillation still prevents a stable neutral capture.
         self.assertEqual(value["stage"], "NEUTRAL")
         self.assertFalse(value["armed"])
+
+    def test_source_pause_keeps_two_of_eleven_and_resumes_next_valid_pose(self):
+        self.engine.command("start_calibration", self.now)
+        for _ in range(20): self.frame(advance=250)
+        for _ in range(16): value = self.frame()
+        self.assertEqual(value["stage"], "LEFT_THUMB")  # second of eleven poses
+        epoch = value["epoch"]
+        neutral = self.engine._neutral.copy()
+        paused = self.engine.pause_source(self.now)
+        self.assertEqual(paused["stage"], "LEFT_THUMB")
+        self.assertEqual(paused["epoch"], epoch)
+        self.assertEqual(paused["fingers"], [])
+        self.assertFalse(paused["armed"])
+        self.assertEqual(self.engine._neutral, neutral)
+        # A held pose cannot finish after a pause: fresh neutral must rearm it.
+        for _ in range(20): value = self.frame(left=("thumb",))
+        self.assertEqual(value["stage"], "LEFT_THUMB")
+        for _ in range(20): self.frame()
+        for _ in range(16): value = self.frame(left=("thumb",))
+        self.assertEqual(value["stage"], "LEFT_INDEX")  # third pose, not NEUTRAL
+        saved_thresholds = self.engine._thresholds.copy()
+        self.engine.pause_source(self.now)
+        self.assertEqual(self.engine._thresholds, saved_thresholds)
+        for _ in range(20): self.frame()
+        for _ in range(16): value = self.frame(left=("index",))
+        self.assertEqual(value["stage"], "LEFT_MIDDLE")
+        self.assertEqual(value["epoch"], epoch)
+
+    def test_source_pause_releases_armed_state_and_never_automatically_rearms(self):
+        self.arm()
+        for _ in range(4): self.frame(left=("index",))
+        paused = self.engine.pause_source(self.now)
+        self.assertEqual(paused["stage"], "READY")
+        self.assertEqual(paused["status"], "READY")
+        self.assertEqual(paused["fingers"], [])
+        self.assertFalse(paused["armed"])
+        self.assertFalse(paused["mouse"]["pressed"])
+        for _ in range(12): value = self.frame(left=("index",))
+        self.assertFalse(value["armed"])
+        for _ in range(8): self.frame()
+        self.engine.command("arm", self.now)
+        for _ in range(8): self.frame()
+        for _ in range(4): value = self.frame(left=("index",))
+        self.assertTrue(self.finger(value, "left", "index")["pressed"])
+
+    def test_source_pause_discards_partial_manual_capture_and_xy_history(self):
+        self.capture()
+        self.engine.command("capture", self.now)
+        self.frame(left=("thumb",), advance=1500)
+        for _ in range(6): self.frame(left=("thumb",))
+        paused = self.engine.pause_source(self.now)
+        self.assertEqual(paused["stage"], "LEFT_THUMB")
+        for _ in range(16): value = self.frame(left=("thumb",))
+        self.assertEqual(value["stage"], "LEFT_THUMB")
+        self.assertEqual(value["status"], "WAITING")
+        self.assertEqual(self.capture(left=("thumb",))["stage"], "LEFT_INDEX")
+        self.engine.pause_source(self.now)
+        moved = observed("left", wrist_x=.36)
+        value = self.frame(hands=(moved, observed("right")))
+        self.assertEqual(self.finger(value, "left", "index")["x"], moved.landmarks[8][0])
+
+    def test_source_pause_clamps_nonnegative_backward_clock_without_cached_held_output(self):
+        self.arm()
+        for _ in range(4): self.frame(left=("index",))
+        for clock in (self.now-100, self.now, self.now):
+            paused = self.engine.pause_source(clock)
+            self.assertEqual(paused["fingers"], [])
+            self.assertFalse(paused["armed"])
+            self.assertFalse(paused["mouse"]["pressed"])
+        for clock in (-1, True, 1.0, None):
+            with self.assertRaises(ValueError):
+                self.engine.pause_source(clock)

@@ -31,10 +31,17 @@ def strict_message(raw, validator):
     return event
 
 
+def camera_sample_issue(sample, now_ms, previous_ms):
+    """Separate recoverable inference delay from invalid capture ownership/order."""
+    stamp = sample.timestamp_ms
+    if type(stamp) is not int or stamp < 0 or stamp <= previous_ms or stamp > now_ms:
+        return "invalid"
+    return "delayed" if now_ms - stamp > 250 else None
+
+
 def fresh_camera_sample(sample, now_ms, previous_ms):
     """Never give a cached held payload a fresh wire timestamp."""
-    if (type(sample.timestamp_ms) is not int or sample.timestamp_ms <= previous_ms or
-            not 0 <= now_ms - sample.timestamp_ms <= 250):
+    if camera_sample_issue(sample, now_ms, previous_ms) is not None:
         return CameraSample(now_ms, None, loss_reason="tracking_timeout")
     return sample
 
@@ -105,6 +112,7 @@ async def handle_air(ws, *, source, model, device, mirror, preview, token, frame
             worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="airdesk-air-camera")
         pending = None
         previous_sample_ms = -1
+        source_paused = False
         while not commands_task.done():
             if frames is None:
                 await send("air.frame", engine.process(CameraSample(int(monotonic() * 1000), None)))
@@ -116,7 +124,8 @@ async def handle_air(ws, *, source, model, device, mirror, preview, token, frame
             if commands_task in done:
                 break
             if pending not in done:
-                sample = CameraSample(int(monotonic() * 1000), None, loss_reason="tracking_timeout")
+                payload = engine.pause_source(int(monotonic() * 1000))
+                paused = True
             else:
                 sample = pending.result()
                 pending = None
@@ -124,14 +133,21 @@ async def handle_air(ws, *, source, model, device, mirror, preview, token, frame
                     await send("air.frame", engine.process(CameraSample(int(monotonic() * 1000), None,
                                                                           loss_reason="camera_disconnected")))
                     break
-                checked = fresh_camera_sample(sample, int(monotonic() * 1000), previous_sample_ms)
-                if checked is not sample:
+                now_ms = int(monotonic() * 1000)
+                issue = camera_sample_issue(sample, now_ms, previous_sample_ms)
+                if issue == "invalid":
                     # Closing is a cancellation boundary, not a fresh replay of cached held state.
                     engine.command("disarm", int(monotonic() * 1000))
-                    await ws.close(code=1011, reason="stale AIR capture")
+                    await ws.close(code=1011, reason="invalid AIR capture")
                     break
                 previous_sample_ms = sample.timestamp_ms
-            await send("air.frame", engine.process(sample))
+                paused = issue == "delayed"
+                payload = engine.pause_source(now_ms) if paused else engine.process(sample)
+            if paused != source_paused:
+                source_paused = paused
+                if on_status:
+                    on_status("air_capture_waiting" if paused else "air_capture_resumed")
+            await send("air.frame", payload)
         if commands_task.done():
             commands_task.result()
     except Exception:

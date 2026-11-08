@@ -1,11 +1,14 @@
 # Experimental ten-finger midair typing — handoff
 
-Date: 2026-11-07. Scope: isolated AirDesk-owned DEBUG DEMO only.
-Status: **IMPLEMENTED (EXPERIMENTAL) + AUTOMATED PASS: XY stabilization, automatic calibration and PC keyboard preview; Python checks newly executed, unchanged Android checks retained/cached; actual webcam jitter improvement, typing accuracy and PLEOS/PC rendering NOT_RUN; operational vehicle input BLOCKED**.
+Updated: 2026-11-08. Scope: isolated AirDesk-owned DEBUG DEMO only.
+Status: **IMPLEMENTED (EXPERIMENTAL) + AUTOMATED PASS: same-connection calibration recovery and local detection diagnostics; actual webcam behavior and PLEOS/PC rendering NOT_RUN; operational vehicle input BLOCKED**.
+This handoff describes repairs to the existing v0.2 prototype. The newly clarified fixed midair/spatial
+key-location interaction is a separate design under review, not implemented functionality in this repair.
 
 ## What is implemented
 
-The user approved experimental calibration of both hands and all ten fingers held forward in midair,
+The existing v0.2 prototype was built against the earlier approval for experimental calibration of
+both hands and all ten fingers held forward in midair,
 with a slightly elevated frontal camera, flex/downstroke and release inference, and a side mouse region.
 This is different from the preserved single-index cursor with Pinch-selected screen keys.
 The PC keyboard, its navigation/function/modifier groups and the side mouse area fit one surface;
@@ -62,6 +65,71 @@ prove a more accurate hand estimate or a successful typing calibration.
 No schema, SDK, library or permission changes accompany this positional update. Hardware tuning and
 before/after jitter, response delay and false/missed typing measurements remain unexecuted.
 
+## Temporary source delay and calibration progress
+
+The user reported automatic calibration moving from **2/11 back to 1/11**. The current recovery update
+separates a temporary camera/inference delay from an invalid capture or a real connection change.
+The **250 ms input-freshness limit is unchanged**.
+
+- An otherwise valid, increasing-timestamp camera sample that arrives more than 250 ms late is
+  dropped. Pending reads that exceed that window also pause input. The same authenticated socket,
+  source session, calibration epoch and completed pose stages remain; a fresh empty/disarmed state
+  replaces all fingertip/button/key ownership. Old coordinates are never re-enveloped as live input.
+- Only the incomplete current sample window and neutral/held/XY state are cleared. If the user was
+  already in a confirmed unarmed automatic calibration, fresh neutral observations let the same
+  stage continue automatically. For example, a paused **LEFT_THUMB / 2/11** stays at that stage,
+  then can advance to **LEFT_INDEX / 3/11** after a valid thumb sample. Typing never rearms automatically.
+- Android releases local input on timeout or a stale-but-otherwise-valid frame. It retains automatic
+  calibration intent/progress only for the confirmed unarmed calibration in the same session/epoch.
+  A retained progress caption contains no cached fingertips, pressed keys, arm grant or local input consent.
+- Malformed messages, invalid/future/nonincreasing source timestamps, explicit cancel/disarm/reset,
+  actual disconnect, changed authenticated session/epoch, background and safety lock retain their
+  fail-closed cancellation/reset behavior. A new connection does not inherit the old calibration or arm.
+- A progress caption may show the last confirmed stage while live data is absent. Read it as paused
+  progress, not current hand recognition. Finger/key/mouse displays still clear immediately or on
+  their existing watchdog. Fresh data must satisfy all original gates before any local action.
+
+No wire/schema, SDK or permission change is involved. This preserves calibration work during a soft
+delay; it does not accept stale input or weaken authentication, ordering, foreground or vehicle gates.
+
+## Interpreting detected hands and valid input
+
+The user also reported that two hands appeared detected while calibration or typing rejected them.
+The PC tracking caption now says **카메라 손 N개 감지 · 타건 유효 여부는 앱에서 확인**. Read the
+counts at their own pipeline stage:
+
+The PC webcam image includes **Preview only | detected N | drawn N**, **Guard: ...**, and
+**Not AIR accepted; side score != landmark confidence**. Read the Guard line when the counts differ;
+**OK for drawing only** confirms only the overlay's eligibility checks.
+
+| Indicator | Meaning |
+| --- | --- |
+| Camera raw hand detections | MediaPipe returned that many hand observations. This does not establish stable left/right identity, usable geometry or input readiness. |
+| Locally displayed overlay hands / rejection reason | The PC drawing layer applied its existing identity/coordinate checks and stabilization. Its raw/displayed counts and reason captions are local diagnostics, not a new wire field or an input permit. |
+| AIR valid fingertips / app status | The AIR source and app applied their own raw-shape, calibration, freshness, mode and local-focus gates. The app's **손끝 / 누름 / 입력 키 · 상세** shows these later stages. |
+
+Possible rejection gates include unknown/duplicate handedness, low handedness-classification score,
+invalid/out-of-range points, a raw wrist jump, ambiguous hand overlap/order, or unusable finger/palm
+geometry. The handedness score is not a landmark-accuracy rating. These are possible diagnostics;
+the actual cause for the user's webcam has not been established by a hardware test. No thresholds
+were relaxed to turn a raw count of two into a claim of valid typing.
+
+The current key-selection mapping is still **absolute camera-image position → displayed key**.
+The user reported fatigue from moving fingertips to search for keys. The earlier HOME-relative and
+hand-follow proposal was approved, then superseded by the clarification that key locations should
+stay fixed in midair, using a laser-projection keyboard image only as a visual reference. **The vehicle
+has no flat typing surface. A desk/paper keyboard, surface projection and moving HOME keyboard are
+not the selected solution.** The intended fixed keyboard does not follow moving hands.
+
+The sensing approach—an explicitly experimental single-webcam estimate versus a measured depth/tracking
+design—remains undecided, so new layout implementation is paused. See
+[SPATIAL_AIR_KEYBOARD_DESIGN.md](../features/SPATIAL_AIR_KEYBOARD_DESIGN.md), which is **DESIGN ONLY,
+NOT IMPLEMENTED**. Neither HOME/hand-follow nor fixed-plane spatial sensing is implemented in this repair.
+
+The v0.3 app-mode proposal was approved but is deferred until that interaction model is confirmed.
+This repair adds no v0.3 profile or schema and keeps the current v0.2 mapping. Repeating calibration
+does not replace the current absolute mapping or provide the newly requested fixed key space.
+
 The approved recognition/profile design is documented in
 [AIR_TYPING_SPEC.md](../features/AIR_TYPING_SPEC.md). Complete landmark-derived frames are
 experimental hints, not proof of physical key contact or trustworthy vehicle safety. No Windows or
@@ -80,15 +148,18 @@ global Android input, another app's text, video transmission or camera recording
 - Schema validity alone is insufficient: current authenticated session, ordering, freshness,
   calibration epoch, unique identities, consistent state and local explicit DEMO enablement are
   consumer checks. A stale/replayed frame or an invalid new frame must not resurrect held inputs.
-- The source rejects stale, future or repeated camera-sample timestamps before re-enveloping a
-  cached estimate as a fresh network frame. The client cancels/disarms on rejected wire data and
-  independently releases input if accepted frames stop arriving for 250 ms. These transport checks
+- The source drops delayed increasing-timestamp samples and emits only empty/disarmed pause state;
+  malformed, future, repeated or regressing timestamps close the source. The client releases input on
+  rejected/absent data, preserves only eligible same-session unarmed calibration metadata on transient
+  timeout/stale-valid frames, and cancels calibration on malformed messages or real disconnect.
+  Input is independently released if accepted frames stop arriving for 250 ms. These transport checks
   are stricter than the recognizer's internal stale-hand window; they are not measured hardware latency.
   The sample timestamp is PC monotonic time taken after a successful camera read/mirror and before
   inference, not a verified sensor exposure timestamp. Its age covers subsequent inference/queue delay;
   it does not measure blocking time inside the camera read or prove sensor freshness.
 - Disarm/reset, loss or ambiguity, calibration changes, disconnect, app background/window-focus loss,
-  unsafe state and stale data clear owned keys/buttons. Reconnection does not automatically resume.
+  unsafe state and stale data clear owned keys/buttons. A temporary unarmed same-session pause may
+  retain completed calibration poses; reconnection does not automatically resume calibration or typing.
 
 ## Calibration and first human test
 
@@ -123,6 +194,9 @@ the actual PLEOS emulator remain NOT_RUN. Do not substitute old v0.1 streaming f
    is no per-stage button. An unstable/coupled pose stays on that stage for correction. **보정 취소**
    stops calibration and remains disarmed. Samples are feature vectors held in memory, not saved video.
    The large PC window follows the current prompt automatically; do not click or switch to it for each pose.
+   If **카메라 신호 일시 대기** appears, keep the hands visible and return them to neutral. A temporary
+   same-connection pause must retain the completed stage rather than restarting at 1/11; all old dots
+   and press highlights must disappear while data is missing. A real reconnect still requires new calibration.
 5. In preview, confirm ten distinct markers follow the intended fingers and hovered keys. Hover and
    holding a flexed finger before arming must not type. Reposition or recalibrate if markers drift.
 6. When **보정 완료 · 11/11** appears, select **메모 입력 → 타건 켜기**. Return fingers to the neutral pose,
@@ -139,7 +213,8 @@ the actual PLEOS emulator remain NOT_RUN. Do not substitute old v0.1 streaming f
    dwell, then test click/drag. Return to keyboard region and verify neutral rearm before typing.
 9. Remove one finger/hand, obscure or cross hands, then separately disconnect, background/unfocus the
    app, disarm and reset calibration. Check no stuck key/button, delayed phantom press or automatic
-   resume. A real hand-order swap must not make the other hand inherit held ownership.
+   typing resume. Separately distinguish temporary unarmed calibration pause from actual reconnect.
+   A real hand-order swap must not make the other hand inherit held ownership.
 10. Press **타건 끄기**, resize/rotate and rerun **검지·Pinch** and **Phase 1 진단** separately. Preserve
    their old cursor and failure cleanup. Changing profile/disconnecting cannot restore previous arm.
    Check safety UNKNOWN continues to block operational Work input.
@@ -194,8 +269,9 @@ with `PYTHONPATH` pinned to this checkout's `gesture-engine/src`: a previous man
 current-session/order/freshness checks, failed calibration without samples, reset/reconnect, v0.1 route
 compatibility and exclusive camera-profile ownership/release using a fake generator. All listeners use
 isolated ephemeral loopback ports; none contacts the user's running server or opens a real webcam.
-The added ninth test verifies stale, future and repeated capture timestamps close the source connection
-before the estimate can receive a fresh wire envelope.
+That historical ninth test originally closed all out-of-window captures. Its old-age assertion is
+superseded by the current split: delayed increasing samples pause without stale input; future,
+repeated, regressing or malformed timestamps still close before an invalid estimate is published.
 
 `scripts/verify-input-first.ps1` preserves its previous stages and adds a separate experimental AIR
 contract stage; it records actual stage/test counts and leaves camera-typing accuracy as a manual gate.
@@ -257,7 +333,7 @@ the same rectangles. No real Tk window, camera or emulator was launched by these
 The final complete run includes the PC callback/UI integration, including disconnect clearing and
 display-callback isolation. Display estimates do not grant local editor, vehicle or OS input authority.
 
-### XY stabilization — current final verification
+### Previous XY stabilization verification — historical result
 
 The independent targeted integration module `test_air_stabilization_integration.py` passed **3 tests,
 exit 0, 0.318 seconds**. Synthetic stationary XY noise was reduced in the actual AIR payload and passed
@@ -282,6 +358,49 @@ executed 156-test result remains recorded in the historical baseline above; the 
 Gradle result is not relabeled as 156 new test executions. Python and both contract suites did run
 against the new code. Actual camera-dot improvement, visual comfort, response delay and typing accuracy
 remain **NOT_RUN**. Headless overlay/Tk tests do not establish actual rendering or sensor accuracy.
+
+### Temporary source delay recovery — current final verification
+
+The updated real-loopback `test_air_server.py` suite passed **13 tests, exit 0, 33.251 seconds**.
+The new regression uses the real engine, real automatic-calibration timers and synthetic two-hand
+observations. It completes neutral to reach **LEFT_THUMB / 2/11**, introduces a 350 ms delay on an
+otherwise increasing capture timestamp, observes empty/unarmed pause state with the same socket,
+session, epoch and stage, then resumes neutral/thumb sampling to advance automatically to
+**LEFT_INDEX / 3/11**. Explicit disarm then prevents the next neutral/index pose from advancing or arming.
+No engine state is patched to fake progress. Hard future/repeated/regressing/malformed timestamp
+rejection remains tested alongside the new soft-delay behavior.
+
+Android source/policy changed in this recovery update, so the prior cached 156-test result remains
+historical and is superseded by the executed reruns below. Hardware confirmation of the reported
+2/11-to-1/11 symptom remains **NOT_RUN**. The contracts and the 250 ms input freshness limit are unchanged.
+
+An intermediate recovery harness passed **141 Python tests, 172 Android tests / 20 suites, both
+contract suites and assembleDebug**, exit 0. Further pending-arm/start/future-frame checks and local
+raw-versus-overlay diagnostic captions were added afterward. That intermediate result is not the
+final verification of those follow-up edits; the completed results follow.
+
+The second complete harness then passed **145 Python tests, 5 canonical tests / 17 fixtures,
+7 AIR tests / 56 fixtures, 180 Android tests / 20 suites and assembleDebug**, exit 0. Its report was
+generated **2026-11-08T05:31:41.9036192Z** (2026-11-08 14:31:41 KST); the Android/build stage took
+55.045 seconds. Two pending-start edge tests and their final Android correction followed that run;
+only Android source/tests changed afterward, so the executed Python/contract results remain applicable.
+
+| Current repair stage | Final actual result | Execution evidence |
+| --- | --- | --- |
+| Python regression and AIR models | **145 tests PASS** | 37.403 s, exit 0; complete run generated 2026-11-08T05:31:41.9036192Z. Python source unchanged after this execution. |
+| Original canonical wire fixtures | **5 tests / 17 fixtures PASS** | 0.424 s, exit 0; same complete run. |
+| Experimental AIR wire fixtures | **7 tests / 56 fixtures PASS** | 0.399 s, exit 0; same complete run. No schema changes. |
+| Final Android JVM rerun and `assembleDebug` | **182 tests / 20 suites PASS; build PASS** | Approximately 45 s, exit 0, BUILD SUCCESSFUL; 8 tasks executed and 37 UP-TO-DATE. Zero failures, errors or skips. Last JUnit update 2026-11-08T05:37:44.408777Z (14:37:44 KST). |
+
+The final Android-only rerun verifies the last pending-start correction; it is not a claim that all
+145 Python tests were rerun at that later time. The local sanitized combined artifact is
+`outputs/calibration-recovery-verification.json` outside Git, preserving each run's provenance.
+During the Android rerun, access to a Kotlin daemon marker under AppData was denied. Gradle's automatic
+non-daemon compiler fallback completed successfully; this warning did not fail the build or tests.
+
+All final results concern the current v0.2 recovery/diagnostics repair. They do not verify the deferred
+fixed-midair-keyboard/v0.3 design, actual webcam typing accuracy or new sensing hardware. No new
+typing layout, v0.3 schema/route or OS-input authority is included.
 
 No actual camera, emulator, GUI or OS input is launched by the automated harness. Historical Windows
 Host/mTLS results remain separate; their previous failures are not converted to passes by AIR tests.
